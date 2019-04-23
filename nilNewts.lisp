@@ -1,6 +1,15 @@
-;;crossover function used by genetic algorithm
-;;takes two parent codes and randomly crosses them over and recombines them to produce two children codes
-;;based on Berghman, L., Dries, G., Leus, R. (2009). Efficient Solutions for Mastermind Using Genetic Algorithms. Proceedings of the 1999 ACM Symposium on Applied Computing, SAC'99, 307-311.
+;;;*********************************************************************************************************
+;;;THIS FILE IS THE MASTERMIND PLAYER FOR THE NIL NEWTS
+;;;USES A GENETIC ALGORITHM WITH LOCAL SEARCH BASED ON:
+;;;Berghman, L., Dries, G., Leus, R. (2009). Efficient Solutions for Mastermind Using Genetic Algorithms.
+;;;Proceedings of the 1999 ACM Symposium on Applied Computing, SAC'99, 307-311.
+;;;Oijen, V. (2018). Genetic Algorithms Playing Mastermind. Utrecht University Bachelor Thesis, Netherlands.
+;;;*********************************************************************************************************
+
+
+;;;*********************************************************************************************************
+;;;Helper Functions
+;;;*********************************************************************************************************
 
 ;;main crossover function
 ;;parents is a list of two guesses
@@ -45,3 +54,10 @@
 		 and do (setf child2 (cons (nth i (second parents)) child2))
 	  finally (return (list (reverse child1) (reverse child2))))))
 
+
+;;;*********************************************************************************************************
+;;;Player
+;;;*********************************************************************************************************
+
+(defun nilNewts (board colors SCSA last-response)
+  (declare (ignore board colors SCSA last-response))) ;to avoid compiler warnings, remove when writing player
