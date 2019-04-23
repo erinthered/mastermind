@@ -59,5 +59,7 @@
 ;;;Player
 ;;;*********************************************************************************************************
 
+(defvar *population-size* 30) ;start with 30 as a baseline, see pg 21 of Oijen
+
 (defun nilNewts (board colors SCSA last-response)
   (declare (ignore board colors SCSA last-response))) ;to avoid compiler warnings, remove when writing player
