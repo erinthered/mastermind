@@ -77,6 +77,10 @@
 											(+ (nth j result) (apply '+ (process-guess game-copy c)))))
 			 finally (return result))))
 
+;; local-search (steepest-ascent hill climbing) performed on the children list 
+;; modifies each child one peg at a time until a local optima is reached  
+(defun local-search (children))
+
 
 ;; dummy fitness function
 (defun fitness-function (codes)
