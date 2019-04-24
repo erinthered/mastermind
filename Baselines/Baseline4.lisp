@@ -27,8 +27,7 @@
 	(let ((kb-entry (list)))
 		(loop for i from board downto 1
 			 do (setf kb-entry (cons i kb-entry)))
-		(setf *Rao-KB* (append *Rao-KB* (list (cons color kb-entry))))
-		))
+		(setf *Rao-KB* (append *Rao-KB* (list (cons color kb-entry))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Helper Functions (ii) - GetNext
@@ -40,8 +39,7 @@
 		(loop for entry in *Rao-KB*
 			 when (and (= (length entry) 2)
 								 (= (second entry) pos))
-			 do (setf itscolor (first entry))
-				 )
+			 do (setf itscolor (first entry)))
 		itscolor))
 
 ;returns next possible position for color
@@ -51,8 +49,7 @@
 			 when (and (eq (first entry) color)
 								 (> (length entry) 2)) ;not fixed
 			 do (setf next (second entry))
-			 until (or next (not entry))
-				 )
+			 until (or next (not entry)))
 		next))
 
 ;returns second unfixed color
@@ -66,8 +63,7 @@
 			 when (and (not first-unfixed)
 								 (> (length entry) 2))
 			 do (setf first-unfixed (nth 0 entry))
-			 until (or second-unfixed (not entry))
-				 )
+			 until (or second-unfixed (not entry)))
 		second-unfixed))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -77,8 +73,7 @@
 ;adds gain # of copies of entries with header *being-considered* to KB
 (defun addlists (board gain)
 	(loop for i from 1 to gain
-		 do (add-kb-entry board *being-considered*)
-			 ))
+		 do (add-kb-entry board *being-considered*)))
 
 ;fix the current *being-fixed*
 (defun fix ()
@@ -106,8 +101,7 @@
 								 (> (length entry) 2)) ;find entry for i
 			 do (setf (nth n *Rao-KB*) (list i fixpos))
 			 and do (setf done T)
-			 until done
-		)))
+			 until done)))
 
 ;delete the current position of color i from KB-entry for color j
 (defun del (i j)
@@ -121,8 +115,7 @@
 								 (> (length entry) 2)) ;find entry for j
 			 do (setf (nth n *Rao-KB*) (remove deletepos entry))
 			 and do (setf done T)
-			 until done)
-		))
+			 until done)))
 
 ;sets the value for *being-fixed*
 (defun bump ()
@@ -134,9 +127,7 @@
 			 when (> (length entry) 2)
 			 do (setf *being-fixed* (first entry))
 			 and do (setf done T)
-			 until done
-				 )
-		))
+			 until done)))
 
 ;set the value for *being-considered*
 (defun nextcolor (board colors)
@@ -149,12 +140,9 @@
 						(setf next 'a) ;initial value
 						(if (< b-c-index (length colors)) ;this should be redundant
 								(setf next (nth b-c-index colors))
-								(setf next *being-considered*) ;redundant
-								))
-				(setf next *being-considered*)
-				)
-	  (setf *being-considered* next)
-		))
+								(setf next *being-considered*)))
+				(setf next *being-considered*))
+	  (setf *being-considered* next)))
 
 ;clean up KB
 (defun cleanup ()
@@ -170,10 +158,7 @@
 			 and do (loop for m from 0 to NN
 								 do (setf entry (nth m *Rao-KB*))
 								 when (/= fixedind m)
-								 do (setf (nth m *Rao-KB*) (remove fixedpos entry))
-									 )
-				 )
-		))
+								 do (setf (nth m *Rao-KB*) (remove fixedpos entry))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Helper Functions (iv) - Rao
@@ -184,8 +169,7 @@
 	(let ((fix-count 0))
 		(loop for entry in *Rao-KB*
 			 when (= (length entry) 2)
-			 do (setf fix-count (1+ fix-count))
-				 )
+			 do (setf fix-count (1+ fix-count)))
 		fix-count))
 
 ;number of guesses made
@@ -202,7 +186,6 @@
 				(gi)) ;ith entry of nextguess
 		(loop for i from 1 to board
 			 do (setf itscolor (tied i))
-
 			 when itscolor
 			 do (setf gi itscolor)
 			 else when (eq i (nextpos *being-fixed*))
@@ -211,9 +194,7 @@
 			 do (setf gi (secondunfixed))
 			 else
 			 do (setf gi *being-considered*)
-
-			 do (setf nextguess (append nextguess (list gi)))
-				 )
+			 do (setf nextguess (append nextguess (list gi))))
 		nextguess))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -223,12 +204,8 @@
 (defun Update (board colors bulls cows)
 	(let ((gain 0))
 		(setf gain (- (+ bulls cows) (numfix)))
-		(if *being-fixed*
-				(setf gain (1- gain)))
-
-		(if (< (length *Rao-KB*) board)
-				(addlists board gain))
-
+		(if *being-fixed*	(setf gain (1- gain)))
+		(if (< (length *Rao-KB*) board) (addlists board gain))
 		(case cows
 			(0 (fix)
 				 (bump))
@@ -237,10 +214,8 @@
 				 (del *being-fixed* *being-fixed*))
 			(2 (fix-1 *being-considered* *being-fixed*))
 			(T (print 'error)))
-
 		(cleanup)
-		(nextcolor board colors)
-		))
+		(nextcolor board colors)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Rao Mastermind Algorithm
@@ -251,9 +226,11 @@
 				 (cows (second last-response))
 				 (guess))
 		(cond ((null bulls)
+					 (reset-rao)
 					 (setf bulls 0)
 					 (setf cows 0)))
 		(Update board colors bulls cows)
+		(cleanup) ;need this again for some reason
 		(setf guess (GetNext board))
 		(cond ((= (numguesses) 0)
 					 (setf *guess-history* (list guess)))
@@ -264,7 +241,7 @@
 ; Player
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun nilNewts (board colors SCSA last-response)
+(defun rao-player (board colors SCSA last-response)
 	(declare (ignore SCSA))
 	(rao board colors last-response))
 
@@ -276,5 +253,4 @@
 		(setf (answer *Mastermind*) '(b c b d f))
 		(loop for resp in resplist
 				 do (print resp)
-				 do (print (funcall 'nilNewts 5 nil nil resp))
-				 )))
+				 do (print (funcall 'nilNewts 5 nil nil resp)))))
