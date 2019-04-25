@@ -86,18 +86,22 @@
 (defun local-search (colors input-codes optimal-codes)
 	(cond ((endp input-codes) (return-from local-search optimal-codes)))	;; base case
 	(first code input-codes)
+	(setf best-fitness 0)
 	(loop for pegs in codes
 		do (loop for color from 0 to (- (length colors) 1)
 				do (setf new-code code)
 				do (setf new-code (nth color new-code))
-				if (fitness-function new-code)								;; This logic is flawed, fix it
-						do (append new-code optimal-codes)))
+				do (setf current-fitness (fitness-function new-code))
+				if (> current-fitness best-fitness)								;; This logic is flawed, fix it
+						do (append new-code optimal-codes)
+						do (setf best-fitness current-fitness)))
 	(local-search colors (rest input-codes optimal-codes)))	
 
 
 ;; dummy fitness function
+;; will implement the fitness function and return the fitness value
 (defun fitness-function (codes)
-	(return-from fitness-function t))
+	(return-from fitness-function 0))
 
 
 ;;;*********************************************************************************************************
