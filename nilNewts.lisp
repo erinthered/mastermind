@@ -77,9 +77,22 @@
 											(+ (nth j result) (apply '+ (process-guess game-copy c)))))
 			 finally (return result))))
 
-;; local-search (steepest-ascent hill climbing) performed on the children list 
-;; modifies each child one peg at a time until a local optima is reached  
-(defun local-search (children))
+
+;; local-search performed on the list of codes 
+;; modifies each child one peg at a time until a local optima is reached
+;; colors contains all the permissible colors in the game  
+;; input-codes contains the population to be checked
+;; optimal-codes should be passed as an empty list and will be returned as an optimal list
+(defun local-search (colors input-codes optimal-codes)
+	(cond ((endp input-codes) (return-from local-search optimal-codes)))	;; base case
+	(first code input-codes)
+	(loop for pegs in codes
+		do (loop for color from 0 to (- (length colors) 1)
+				do (setf new-code code)
+				do (setf new-code (nth color new-code))
+				if (fitness-function new-code)								;; This logic is flawed, fix it
+						do (append new-code optimal-codes)))
+	(local-search colors (rest input-codes optimal-codes)))	
 
 
 ;; dummy fitness function
