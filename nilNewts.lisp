@@ -99,7 +99,7 @@
 
 
 ;; dummy fitness function
-;; will implement the fitness function and return the fitness value
+;; will implement the fitness function and return the fitness value for list codes
 (defun fitness-function (codes)
 	(return-from fitness-function 0))
 
