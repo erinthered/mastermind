@@ -90,12 +90,14 @@
 (defun eligiblep (code)
 (let ((N (1- (length *guess-history*))))
   (loop for i from 0 to N
-     with guess = (nth i *guess-history*)
-     with response = (nth i *response-history*) ;actual response
+     with guess ;actual guess made
+     with response ;actual response to guess
      with mock-response
      with game-copy = (setf game-copy (copy-game *Mastermind*))
      when (null mock-response)
      do (setf (answer game-copy) code) ;set the answer for the copy of *Mastermind*
+     do (setf guess (nth i *guess-history*))
+     do (setf response (nth i *response-history*))
      do (setf mock-response (process-guess game-copy guess))
      when (not (equal response mock-response))
      do (return nil)
