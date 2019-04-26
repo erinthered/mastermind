@@ -6,6 +6,15 @@
 ;;;Oijen, V. (2018). Genetic Algorithms Playing Mastermind. Utrecht University Bachelor Thesis, Netherlands.
 ;;;*********************************************************************************************************
 
+;;;*********************************************************************************************************
+;;;Global Variables
+;;;*********************************************************************************************************
+
+;list containing all guesses made in sequential order
+(defvar *guess-history* (list))
+
+;list containing all responses to guesses made by the player
+(defvar *response-history* (list))
 
 ;;;*********************************************************************************************************
 ;;;Helper Functions
@@ -61,22 +70,37 @@
 ;;codes is a list of generated codes
 ;;returns a list of similarity scores for each entry in codes, where similarity is as defined in Berghman et al
 (defun similarity-scores (codes)
-	(let ((result (make-list (length codes) :initial-element 0))
-				(game-copy)
-				(N (1- (length codes))))
-		(loop for i from 0 to N
-			 for c = (nth i codes)
-			 do (setf game-copy nil)
-			 do (loop for j from 0 to N
-						 for c* = (nth j codes)
-						 when (not game-copy) ;entering loop for the first time
-						 do (setf game-copy (copy-game *Mastermind*))
-						 and do (setf (answer game-copy) c*)
-						 when (/= i j)
-						 do (setf (nth j result)
-											(+ (nth j result) (apply '+ (process-guess game-copy c)))))
-			 finally (return result))))
+  (let ((result (make-list (length codes) :initial-element 0))
+        (game-copy)        
+        (N (1- (length codes))))    
+    (loop for i from 0 to N         
+       for c = (nth i codes)         
+       do (setf game-copy nil)         
+       do (loop for j from 0 to N	     
+	   for c* = (nth j codes)	     
+	   when (not game-copy) ;entering loop for the first time	     
+	   do (setf game-copy (copy-game *Mastermind*))	     
+	   and do (setf (answer game-copy) c*)	     
+	   when (/= i j)	     
+	   do (setf (nth j result)		  
+		  (+ (nth j result) (apply '+ (process-guess game-copy c)))))         
+       finally (return result))))
 
+;;returns T when code is eligible as defined in Berghman et al. Returns nil otherwise
+(defun eligiblep (code)
+(let ((N (1- (length *guess-history*))))
+  (loop for i from 0 to N
+     with guess = (nth i *guess-history*)
+     with response = (nth i *response-history*) ;actual response
+     with mock-response
+     with game-copy = (setf game-copy (copy-game *Mastermind*))
+     when (null mock-response)
+     do (setf (answer game-copy) code) ;set the answer for the copy of *Mastermind*
+     do (setf mock-response (process-guess game-copy guess))
+     when (not (equal response mock-response))
+     do (return nil)
+     finally (return T))))
+       
 
 ;;;*********************************************************************************************************
 ;;;Player
