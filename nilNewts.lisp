@@ -87,7 +87,7 @@
 	(cond ((endp input-codes) (return-from local-search optimal-codes)))	;; base case
 	(first code input-codes)
 	(setf best-fitness 0)
-	(loop for pegs in codes
+	(loop for pegs in code
 		do (loop for color from 0 to (- (length colors) 1)
 				do (setf new-code code)
 				do (setf new-code (nth color new-code))
