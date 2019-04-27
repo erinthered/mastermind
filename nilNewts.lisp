@@ -162,11 +162,12 @@
   (declare (ignore SCSA))
   (let ((result)
         (similarities)
-        (pass)) ;boolean
+        (pass) ;boolean
+        (next-guess))
     (cond ((null last-response) ;first round
 	 (setf *response-history* (list))
-	 (setf *guess-history* (list)))) ;reset histories
-    (append *response-history* (list last-response)) ;update response history
+	 (setf *guess-history* (list))) ;reset histories
+	(T (append *response-history* (list last-response)))) ;update response history	   
     (loop while (not pass)
        with old-gen = (make-initial-population board colors)
        with new-gen
@@ -201,6 +202,8 @@
        do (setf new-gen nil)) ;end of generation making while-loop
     do (setf similarities (similarity-scores eligible)) ;sort by descending similarity scores
     do (sort similarities #'> :key #'first)
-    (second (first similarities)))) ;return next guess
+    (setf next-guess (second (first similarities)))
+    (append *guess-history* (list next-guess))
+    next-guess))
          
 	     
