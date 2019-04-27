@@ -22,7 +22,13 @@
 
 ;;copy constructor for game class
 (defmethod copy-game ((self game))
-	(make-instance 'game :board (board self) :colors (colors self) :number-of-colors (number-of-colors self) :answer (answer self) :SCSA (SCSA self) :guesses (guesses self) :game-cutoff (game-cutoff self)))
+  (make-instance 'game :board (board self) :colors (colors self) :number-of-colors (number-of-colors self) :answer (answer self) :SCSA (SCSA self) :guesses (guesses self) :game-cutoff (game-cutoff self)))
+
+;;make initial population for GA
+(defun make-initial-population (code-length colors)
+  (loop for i from 1 to *population-size*
+     collect (insert-colors code-length colors) into result
+     finally (return result)))
 
 ;;main crossover function
 ;;parents is a list of two guesses
@@ -68,12 +74,12 @@
 	  finally (return (list (reverse child1) (reverse child2))))))
 
 ;;codes is a list of generated codes
-;;returns a list of similarity scores for each entry in codes, where similarity is as defined in Berghman et al
+;;returns a sequence of (similarity code) over each code in codes, where similarity is as defined in Berghman et al
 (defun similarity-scores (codes)
-  (let ((result (make-list (length codes) :initial-element 0))
+  (let ((result (make-sequence 'list (length codes)))
         (game-copy)        
         (N (1- (length codes))))    
-    (loop for i from 0 to N         
+    (loop for i from 0 to N
        for c = (nth i codes)         
        do (setf game-copy nil)         
        do (loop for j from 0 to N	     
@@ -83,7 +89,7 @@
 	   and do (setf (answer game-copy) c*)	     
 	   when (/= i j)	     
 	   do (setf (nth j result)		  
-		  (+ (nth j result) (apply '+ (process-guess game-copy c)))))         
+		  (list (+ (nth j result) (apply '+ (process-guess game-copy c))) c)))
        finally (return result))))
 
 ;;returns T when code is eligible as defined in Berghman et al. Returns nil otherwise
@@ -102,7 +108,49 @@
      when (not (equal response mock-response))
      do (return nil)
      finally (return T))))
-       
+
+;;make a family from parents using crossover and local search
+;;parents is a list of two codes
+(defun nuclear-family (parents)
+  (let* ((children (crossover parents))
+         (modified-children (local-search children))
+         (family (append parents modified-children)))
+    (return family)))
+
+;;makes a new generation from old-gen
+;;adds eligible members of the new-gen to a new list eligible
+;;returns a list (new-gen eligible)
+(defun make-new-generation (old-gen)
+  (loop for i from 0 to (1- *population-size*)
+     with parent1       
+     with parent2       
+     with parents       
+     with family       
+     with family-seq ;sequence of format (fitness-of-member member)
+     with new-gen
+     with eligible
+     do (setf family-seq (make-sequence 'list 4)) ;reset family-seq       
+     do (setf parent1 (nth (* 2 i) old-gen))       
+     do (setf parent2 (nth (1+ (* 2 i)) old-gen))       
+     do (setf parents (list parent1 parent2))       
+     do (setf family (nuclear-family parents))
+     do (append new-gen (n-most-fit 2 family))       
+     finally (return (list new-gen eligible))))
+
+;;returns a list of the n most fit members of gen
+;;n must be <= the length of gen
+(defun n-most-fit (n gen)
+  (let ((N (1- (length gen)))
+        (gen-seq (make-sequence 'list 0)))
+    (loop for i from 0 to N
+       with member
+       do (setf member (nth n gen))         
+       do (append gen-seq (list (fitness-function member) member)))
+    do (sort gen-seq #'> :key #'first)
+    (loop for i from 0 to n
+       collect (second (nth i gen-seq)) into result
+       finally (return result))))         
+      
 
 ;;;*********************************************************************************************************
 ;;;Player
@@ -111,4 +159,48 @@
 (defvar *population-size* 30) ;start with 30 as a baseline, see pg 21 of Oijen
 
 (defun nilNewts (board colors SCSA last-response)
-  (declare (ignore board colors SCSA last-response))) ;to avoid compiler warnings, remove when writing player
+  (declare (ignore SCSA))
+  (let ((result)
+        (similarities)
+        (pass)) ;boolean
+    (cond ((null last-response) ;first round
+	 (setf *response-history* (list))
+	 (setf *guess-history* (list)))) ;reset histories
+    (append *response-history* (list last-response)) ;update response history
+    (loop while (not pass)
+       with old-gen = (make-initial-population board colors)
+       with new-gen
+       with new-gen-seq = (make-sequence 'list 0)
+       with eligible
+       with max-fitness
+       with min-fitness
+       with new-max-fitness
+       with new-min-fitness
+       with unchanged-count = 0
+       do (setf result (make-new-generation old-gen))
+       do (setf new-gen (first result))
+       do (setf eligible (second result))         
+       do (setf new-gen-seq (make-sequence 'list 0)) ;reset new-gen-seq
+       do (loop for member in new-gen
+	   do (append new-gen-seq (list (fitness-function member) member)
+	   when (eligiblep member)
+	   do (cons member eligible))) ;end of make new-gen loop
+       do (sort new-gen-seq #'> :key #'first) ;sort new-gen-seq by descending fitness
+       do (setf new-max-fitness (first (first new-gen-seq)))
+       do (setf new-min-fitness (first (first new-gen-seq)))
+       when (and (> new-max-fitness max-fitness) (< new-min-fitness min-fitness))
+       do (incf unchanged-count)
+       else do (setf unchanged-count 0)         
+       when (> new-max-fitness max-fitness)
+       do (setf max-fitness new-max-fitness)
+       when (< new-min-fitness min-fitness)
+       do (setf min-fitness new-min-fitness)
+       when (= unchanged-count 5)
+       do (setf pass T)
+       do (setf old-gen new-gen)
+       do (setf new-gen nil)) ;end of generation making while-loop
+    do (setf similarities (similarity-scores eligible)) ;sort by descending similarity scores
+    do (sort similarities #'> :key #'first)
+    (second (first similarities)))) ;return next guess
+         
+	     
