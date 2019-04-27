@@ -77,6 +77,19 @@
 											(+ (nth j result) (apply '+ (process-guess game-copy c)))))
 			 finally (return result))))
 
+;compares fitness score a with fitness score b.
+(defun compare (a b)
+  (> (first a) (first b))
+
+;helps fitness function claculate fitness score.
+(defun eval-diff (guess answer)
+  (+ (- (first (first answer)) (first guess));compares first(right position and color)
+     (- (second (first answer)) (second guess)))));compares second(right color)
+
+;fitness function.
+(defun calculate-fitness (code)
+  (loop for n from 0 to (- 1 (length *guess-list*))
+     sum (eval-diff code (nth n *guess-list*))))
 
 ;;;*********************************************************************************************************
 ;;;Player
