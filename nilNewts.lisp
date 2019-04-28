@@ -152,6 +152,41 @@
        finally (return result))))         
       
 
+;; local-search performed on the list of codes 
+;; modifies each child one peg at a time until a local optima is reached
+;; colors contains all the permissible colors in the game  
+;; input-codes contains the population to be checked
+;; optimal-codes should be passed as an empty list and will be returned as an optimal list
+(defun local-search (colors input-codes)
+	(let ((optimal-codes '())
+				(code (first input-codes))
+				(best-fitness most-negative-fixnum))
+
+	(cond ((endp input-codes) (return-from local-search optimal-codes)))	;; base case
+	;; (setf best-fitness 1)
+	(loop for pegs from 0 to (- (length code) 1)
+		do (loop for color from 0 to (- (length colors) 1)
+            ;; do (format t "~%Optimal Code at beginning: ~a ~%" optimal-codes)
+            ;; do (format t "Code at beginning: ~a ~%" code)
+            do (setf new-code code)
+            do (setf (nth pegs new-code) (nth color colors))
+            do (setf current-fitness (fitness-function new-code))
+            do (cond ((> current-fitness best-fitness)
+                (setf optimal-codes (list new-code)) ;; remove append from this line
+                ;; (format t "Optimal Code: ~a" optimal-codes)
+                (terpri)(terpri)
+                (setf best-fitness current-fitness))
+                ;; (t (format t "Cond Skipped")))))
+    (setf optimal-codes (append optimal-codes (local-search colors (rest input-codes))))
+    ;; (format t "optimal-code ~a ~%" optimal-codes)
+    (return-from local-search optimal-codes)))	
+
+;; dummy fitness function
+;; will implement the fitness function and return the fitness value for list codes
+(defun fitness-function (codes)
+	(return-from fitness-function 0))
+
+
 ;;;*********************************************************************************************************
 ;;;Player
 ;;;*********************************************************************************************************
