@@ -79,17 +79,18 @@
 
 ;compares fitness score a with fitness score b.
 (defun compare (a b)
-  (> (first a) (first b))
+  (> (clculate-fitness a) (calculate-fitness b)))
 
 ;helps fitness function claculate fitness score.
 (defun eval-diff (guess answer)
-  (+ (- (first (first answer)) (first guess));compares first(right position and color)
-     (- (second (first answer)) (second guess)))));compares second(right color)
+  (let ((my-processed-guess (process-guess guess)))
+  (+ (- (first (first answer)) (first my-processed-guess));compares first(right position and color)
+     (- (second (first answer)) (second my-processed-guess)))));compares second(right color)
 
 ;fitness function.
 (defun calculate-fitness (code)
-  (loop for n from 0 to (- 1 (length *guess-list*))
-     sum (eval-diff code (nth n *guess-list*))))
+  (loop for n from 0 to (1- (length *guess-history*))
+       sum (eval-diff code (nth *guess-list* n))))
 
 ;;;*********************************************************************************************************
 ;;;Player
