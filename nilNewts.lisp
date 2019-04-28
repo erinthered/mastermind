@@ -7,8 +7,10 @@
 ;;;*********************************************************************************************************
 
 ;;;*********************************************************************************************************
-;;;Global Variables
+;;;Global Variables & Parameters
 ;;;*********************************************************************************************************
+
+(defvar *population-size* 30) ;start with 30 as a baseline, see pg 21 of Oijen
 
 ;list containing all guesses made in sequential order
 (defvar *guess-history* (list))
@@ -16,19 +18,31 @@
 ;list containing all responses to guesses made by the player
 (defvar *response-history* (list))
 
+(defparameter *fitness-alpha* 1)
+
+(defparameter *fitness-beta* 1)
+
 ;;;*********************************************************************************************************
-;;;Helper Functions
+;;;Helper Functions (1) - General
 ;;;*********************************************************************************************************
 
 ;;copy constructor for game class
 (defmethod copy-game ((self game))
   (make-instance 'game :board (board self) :colors (colors self) :number-of-colors (number-of-colors self) :answer (answer self) :SCSA (SCSA self) :guesses (guesses self) :game-cutoff (game-cutoff self)))
 
+;;;*********************************************************************************************************
+;;;Helper Functions (2a) - GA - Initial Population
+;;;*********************************************************************************************************
+
 ;;make initial population for GA
 (defun make-initial-population (code-length colors)
   (loop for i from 1 to *population-size*
      collect (insert-colors code-length colors) into result
      finally (return result)))
+
+;;;*********************************************************************************************************
+;;;Helper Functions (2b) - GA - Crossover
+;;;*********************************************************************************************************
 
 ;;main crossover function
 ;;parents is a list of two guesses
@@ -71,8 +85,61 @@
 	  else when (>= i index2)
 		 do (setf child1 (cons (nth i (first parents)) child1))
 		 and do (setf child2 (cons (nth i (second parents)) child2))
-	  finally (return (list (reverse child1) (reverse child2))))))
+       finally (return (list (reverse child1) (reverse child2))))))
 
+;;;*********************************************************************************************************
+;;;Helper Functions (2c) - GA - Local Search
+;;;*********************************************************************************************************
+
+;; local-search performed on the list of codes 
+;; modifies each child one peg at a time until a local optima is reached
+;; colors contains all the permissible colors in the game  
+;; input-codes contains the population to be checked
+;; optimal-codes should be passed as an empty list and will be returned as an optimal list
+(defun local-search (board colors input-codes)
+  (let* ((optimal-codes '()) ;intialize return list
+         (code (first input-codes))
+         (best-fitness (fitness board code))
+         (best-code code)
+         (num-colors (length colors)))
+         (cond ((endp input-codes)
+	      (return-from local-search optimal-codes))) ;; base case
+         (loop for peg from 0 to (1- board)
+	  with new-code
+	  do (loop for color from 0 to (1- num-colors)
+	        with current-fitness	     
+	        ;; do (format t "~%Optimal Code at beginning: ~a ~%" optimal-codes)
+	        ;; do (format t "Code at beginning: ~a ~%" code)
+	        do (setf new-code code) ;reset new-code
+	        do (setf (nth peg new-code) (nth color colors))
+	        do (setf current-fitness (fitness board new-code))
+	        do (cond ((> current-fitness best-fitness)
+		        (setf best-code new-code)
+		        (setf best-fitness current-fitness)))))
+         (setf optimal-codes (append (list best-code) (local-search board colors (rest input-codes))))
+         (return-from local-search optimal-codes)))
+
+(defun fitness (board c)
+  (let ((a *fitness-alpha*)
+        (b *fitness-beta*)
+        (game-copy (copy-game *Mastermind*))
+        (N (1- (length *guess-history*))))
+    (setf (answer game-copy) c)
+    (loop for i from 0 to N
+       with guess         
+       with mock-response
+       with response
+       do (setf guess (nth i *guess-history*))
+       do (setf mock-response (process-guess game-copy guess))
+       do (setf response (nth i *response-history*))
+       sum (abs (- (first mock-response) (first response))) into sum-x
+       sum (abs (- (second mock-response) (second response))) into sum-y
+       finally (return (+ (* a sum-x) sum-y (* b board N))))))         
+
+;;;*********************************************************************************************************
+;;;Helper Functions (2d) - GA - Family Competition
+;;;*********************************************************************************************************
+	     
 ;;codes is a list of generated codes
 ;;returns a sequence of (similarity code) over each code in codes, where similarity is as defined in Berghman et al
 (defun similarity-scores (codes)
@@ -94,105 +161,82 @@
 
 ;;returns T when code is eligible as defined in Berghman et al. Returns nil otherwise
 (defun eligiblep (code)
-(let ((N (1- (length *guess-history*))))
-  (loop for i from 0 to N
-     with guess ;actual guess made
-     with response ;actual response to guess
-     with mock-response
-     with game-copy = (setf game-copy (copy-game *Mastermind*))
-     when (null mock-response)
-     do (setf (answer game-copy) code) ;set the answer for the copy of *Mastermind*
-     do (setf guess (nth i *guess-history*))
-     do (setf response (nth i *response-history*))
-     do (setf mock-response (process-guess game-copy guess))
-     when (not (equal response mock-response))
-     do (return nil)
-     finally (return T))))
+  (let ((N (1- (length *guess-history*))))
+    (loop for i from 0 to N
+       with guess ;actual guess made
+       with response ;actual response to guess
+       with mock-response
+       with game-copy = (copy-game *Mastermind*)
+       when (null mock-response)
+       do (setf (answer game-copy) code) ;set the answer for the copy of *Mastermind*
+       do (setf guess (nth i *guess-history*))
+       do (setf response (nth i *response-history*))
+       do (setf mock-response (process-guess game-copy guess))
+       when (not (equal response mock-response))
+       do (return nil)
+       finally (return T))))
 
 ;;make a family from parents using crossover and local search
 ;;parents is a list of two codes
-(defun nuclear-family (parents)
+(defun nuclear-family (board colors parents)
   (let* ((children (crossover parents))
-         (modified-children (local-search children))
+         (modified-children (local-search board colors children))
          (family (append parents modified-children)))
-    (return family)))
+    family))
+
+;;will describe this later
+(defun pairwise-indices (n)
+  (let* ((result (multiple-value-bind (f r) (floor n 2) (list f r)))
+         (N (first result)))
+    (loop for i from 0 to (1- N)
+       collect (list (* 2 i) (1+ (* 2 i))) into result
+       finally (return result))))
 
 ;;makes a new generation from old-gen
-;;adds eligible members of the new-gen to a new list eligible
-;;returns a list (new-gen eligible)
-(defun make-new-generation (old-gen)
-  (loop for i from 0 to (1- *population-size*)
-     with parent1       
-     with parent2       
-     with parents       
-     with family       
-     with family-seq ;sequence of format (fitness-of-member member)
-     with new-gen
-     with eligible
-     do (setf family-seq (make-sequence 'list 4)) ;reset family-seq       
-     do (setf parent1 (nth (* 2 i) old-gen))       
-     do (setf parent2 (nth (1+ (* 2 i)) old-gen))       
-     do (setf parents (list parent1 parent2))       
-     do (setf family (nuclear-family parents))
-     do (append new-gen (n-most-fit 2 family))       
-     finally (return (list new-gen eligible))))
+;;Error when running the following: (make-new-generation 3 '(a b c) '((a b c) (a a a) (b b b))) with population size of 3
+;;Evaluation aborted on #<SB-INT:INVALID-ARRAY-INDEX-ERROR expected-type: (INTEGER 0 (3)) datum: NIL>
+(defun make-new-generation (board colors old-gen)
+  (let* ((parent-indices (pairwise-indices *population-size*)))
+    (cond ((oddp *population-size*)
+	 (setf parent-indices (append parent-indices (list (1- *population-size*) -1))))) ;-1 is a dummy value
+    (loop for (idx1 idx2) in parent-indices
+       with parent1       
+       with parent2       
+       with parents       
+       with family       
+       with family-seq ;sequence of format (fitness-of-member member)
+       with new-gen
+         
+       do (setf parent1 (nth idx1 old-gen))
+       when (= idx2 -1)
+       do (setf new-gen (append new-gen (list parent1))) ;just tack on the last member
+       else
+       do (setf family-seq (make-sequence 'list 4)) ;reset family-seq 	       (setf parent2 (nth idx2 old-gen))        
+       and do (setf parents (list parent1 parent2))        
+       and do (setf family (nuclear-family board colors parents))
+       and do (setf new-gen (append new-gen (n-most-fit board 2 family)))
+       finally (return new-gen))))
 
 ;;returns a list of the n most fit members of gen
 ;;n must be <= the length of gen
-(defun n-most-fit (n gen)
-  (let ((N (1- (length gen)))
-        (gen-seq (make-sequence 'list 0)))
-    (loop for i from 0 to N
+(defun n-most-fit (board n gen)
+  (let* ((M (1- (length gen)))
+        (gen-seq (make-sequence 'list (length gen))))
+    (loop for i from 0 to M
        with member
-       do (setf member (nth n gen))         
-       do (append gen-seq (list (fitness-function member) member)))
-    do (sort gen-seq #'> :key #'first)
-    (loop for i from 0 to n
+       do (setf member (nth i gen))         
+       do (setf (nth i gen-seq) (list (fitness board member) member)))
+    (stable-sort gen-seq #'> :key #'first)
+    (loop for i from 0 to (1- n)
        collect (second (nth i gen-seq)) into result
        finally (return result))))         
-      
-
-;; local-search performed on the list of codes 
-;; modifies each child one peg at a time until a local optima is reached
-;; colors contains all the permissible colors in the game  
-;; input-codes contains the population to be checked
-;; optimal-codes should be passed as an empty list and will be returned as an optimal list
-(defun local-search (colors input-codes)
-	(let ((optimal-codes '())
-				(code (first input-codes))
-				(best-fitness most-negative-fixnum))
-
-	(cond ((endp input-codes) (return-from local-search optimal-codes)))	;; base case
-	;; (setf best-fitness 1)
-	(loop for pegs from 0 to (- (length code) 1)
-		do (loop for color from 0 to (- (length colors) 1)
-            ;; do (format t "~%Optimal Code at beginning: ~a ~%" optimal-codes)
-            ;; do (format t "Code at beginning: ~a ~%" code)
-            do (setf new-code code)
-            do (setf (nth pegs new-code) (nth color colors))
-            do (setf current-fitness (fitness-function new-code))
-            do (cond ((> current-fitness best-fitness)
-                (setf optimal-codes (list new-code)) ;; remove append from this line
-                ;; (format t "Optimal Code: ~a" optimal-codes)
-                (terpri)(terpri)
-                (setf best-fitness current-fitness))
-                ;; (t (format t "Cond Skipped")))))
-    (setf optimal-codes (append optimal-codes (local-search colors (rest input-codes))))
-    ;; (format t "optimal-code ~a ~%" optimal-codes)
-    (return-from local-search optimal-codes)))	
-
-;; dummy fitness function
-;; will implement the fitness function and return the fitness value for list codes
-(defun fitness-function (codes)
-	(return-from fitness-function 0))
-
 
 ;;;*********************************************************************************************************
-;;;Player
+;;; Player
 ;;;*********************************************************************************************************
 
-(defvar *population-size* 30) ;start with 30 as a baseline, see pg 21 of Oijen
-
+;;all helper functions are good to go except make-new-generation. see the comment above the function for the error.
+;;haven't tested below :')
 (defun nilNewts (board colors SCSA last-response)
   (declare (ignore SCSA))
   (let ((result)
@@ -213,15 +257,14 @@
        with new-max-fitness
        with new-min-fitness
        with unchanged-count = 0
-       do (setf result (make-new-generation old-gen))
-       do (setf new-gen (first result))
-       do (setf eligible (second result))         
+       do (setf result (make-new-generation board colors old-gen))
+       do (setf new-gen (first result))       
        do (setf new-gen-seq (make-sequence 'list 0)) ;reset new-gen-seq
-       do (loop for member in new-gen
-	   do (append new-gen-seq (list (fitness-function member) member)
+       do (loop for member in new-gen ;populate new-gen-seq
+	   do (append new-gen-seq (list (fitness board member) member))
 	   when (eligiblep member)
-	   do (cons member eligible))) ;end of make new-gen loop
-       do (sort new-gen-seq #'> :key #'first) ;sort new-gen-seq by descending fitness
+	   do (cons member eligible)) ;end of populate new-gen-seq
+       do (stable-sort new-gen-seq #'> :key #'first) ;sort new-gen-seq by descending fitness
        do (setf new-max-fitness (first (first new-gen-seq)))
        do (setf new-min-fitness (first (first new-gen-seq)))
        when (and (> new-max-fitness max-fitness) (< new-min-fitness min-fitness))
@@ -236,7 +279,7 @@
        do (setf old-gen new-gen)
        do (setf new-gen nil)) ;end of generation making while-loop
     do (setf similarities (similarity-scores eligible)) ;sort by descending similarity scores
-    do (sort similarities #'> :key #'first)
+    do (stable-sort similarities #'> :key #'first)
     (setf next-guess (second (first similarities)))
     (append *guess-history* (list next-guess))
     next-guess))
