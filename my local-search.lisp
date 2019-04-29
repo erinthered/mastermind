@@ -39,7 +39,7 @@
      finally (return removed)))
 
 ;;;*********************************************************************************************************
-;;;Helper Functions (2a) - GA - Initial Population
+;;;Helper Functions (2a) - GA - Initializing
 ;;;*********************************************************************************************************
 
 ;;make initial guess for GA
@@ -108,37 +108,39 @@
 ;; Based on local-search algorithm from Oijen
 ;; and hill-climbing algorithm from Russell, J., Norvig, P. "Artificial Intelligence: A Modern Approach"
 (defun local-search (board colors child)
-  (loop with current = (copy-list child)
-	with neighbor = (copy-list child)
-	for peg from 0 to (1- (length child))
-	do (setf neighbor (best-successor board colors neighbor peg))
-	do (when (equal neighbor current)
-	     (return current))
-	do (setf current neighbor)
-	finally (return current)))
+  (loop while T
+       with current = (copy-list child)
+       with neighbor
+       do (setf neighbor (best-successor board colors current))
+       when (<= (fitness board neighbor) (fitness board current))
+       do (return current)
+       else do (setf current neighbor)))
+         
+(defun best-successor (board colors child)
+  (let* ((successors (make-successors board colors child))
+         (successors-seq (make-fitness-sequence-from-codes board successors)))
+    (setf successors-seq (stable-sort successors-seq #'> :key #'first))
+    (second (first successors-seq))))
 
-;; finds local optima of all color changes for a single peg
-;; returns best of successor states or child if child is already local optima
-(defun best-successor (board colors child peg)
-  (loop with best-code = (copy-list child)
-	with best-fitness = (fitness board best-code)
-	with current-code = (copy-list child)
-	with current-fitness = (fitness board current-code)
-	for color in colors
-	do (setf (nth peg current-code) color)
-	do (setf current-fitness (fitness board current-code))
-	do (when (> current-fitness best-fitness)
-	     (setf best-code (copy-list current-code))
-	     (setf best-fitness (fitness board best-code)))
-	finally (return best-code)))
+(defun make-successors (board colors child)
+  (loop for peg from 0 to (1- board)
+     with successor
+     with result = (list)
+     do (loop for color in colors
+	 do (setf successor (copy-list child))
+	 do (setf (nth peg successor) color)
+	 when (not (equal child successor))
+	 do (setf result (append result (list successor))))
+     finally (return result)))       
 
 ;; fitness function for local algorithm
 ;; based on fitness function from Berghman
+;; *guess-history* and *response-history* should not be empty when this is called
 (defun fitness (board c)
   (let ((a *fitness-alpha*)
         (b *fitness-beta*)
         (game-copy (copy-game *Mastermind*))
-        (N (1- (length *guess-history*))))
+        (N (1- (lenGth *guess-history*))))
     (setf (answer game-copy) c)
     (loop for i from 0 to N
        with guess         
@@ -252,7 +254,7 @@
 ;;n must be <= the length of gen
 (defun n-most-fit (board n gen)
   (let* ((gen-seq (make-fitness-sequence-from-codes board gen)))
-    (stable-sort gen-seq #'> :key #'first)
+    (setq gen-seq (stable-sort gen-seq #'> :key #'first))
     (loop for i from 0 to (1- n)
        collect (second (nth i gen-seq)) into result
        finally (return result))))         
@@ -265,8 +267,8 @@
   (let* ((similarities)
          (eligible (list))
          (loop-count 0)
-         (pass) ;boolean
-         (next-guess))
+         (pass)) ;boolean
+      ;   (next-guess))
     (loop while (not pass) ;make next guess using the Berghman GA
        with old-gen = (make-initial-population board colors)
        with new-gen
@@ -312,7 +314,7 @@
 				;(print loop-count)
     (setf similarities (similarity-scores eligible)) ;sort by descending similarity scores
     (setf similarities (stable-sort similarities #'> :key #'first))
-    (setf next-guess (second (first similarities)))))
+    (second (first similarities))))
   
 (defun nilNewts (board colors SCSA last-response)
   (declare (ignore SCSA))
