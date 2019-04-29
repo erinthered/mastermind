@@ -143,7 +143,7 @@
 ;;codes is a list of generated codes
 ;;returns a sequence of (similarity code) over each code in codes, where similarity is as defined in Berghman et al
 (defun similarity-scores (codes)
-  (let ((result (make-sequence 'list (length codes)))
+  (let ((result (make-sequence 'list 1 :initial-element (list 0 (first codes))))
         (game-copy)        
         (N (1- (length codes))))    
     (loop for i from 0 to N
@@ -184,48 +184,55 @@
          (family (append parents modified-children)))
     family))
 
-;;will describe this later
-(defun pairwise-indices (n)
-  (let* ((result (multiple-value-bind (f r) (floor n 2) (list f r)))
-         (N (first result)))
-    (loop for i from 0 to (1- N)
-       collect (list (* 2 i) (1+ (* 2 i))) into result
-       finally (return result))))
+;;makes a list of 2-tuples of pairwise disjoint indices for parents in order to yield n children
+;;for even numbers we split the list (0 ... n-1) exactly
+;;for odd numbers we split the list (0 ... n-2) exactly. The last pair is (n-1 -1), where -1 is to be taken as a dummy variable meaning "for the last child, just clone the n-1th parent"
+;;ex) n=4; (make-parent-indices n) -> ((0 1) (2 3))
+(defun make-parent-indices ()
+  (let* ((n *population-size*)
+         (result (multiple-value-bind (f r) (floor n 2) (list f r)))
+         (M (first result)))
+    (loop for i from 0 to (1- M)
+       collect (list (* 2 i) (1+ (* 2 i))) into parent-indices
+       finally (cond ((oddp n)
+		  (setf parent-indices (append parent-indices (list (list (1- n) -1))))	 
+		  (return parent-indices))
+		 (T (return parent-indices))))))
 
 ;;makes a new generation from old-gen
-;;Error when running the following: (make-new-generation 3 '(a b c) '((a b c) (a a a) (b b b))) with population size of 3
-;;Evaluation aborted on #<SB-INT:INVALID-ARRAY-INDEX-ERROR expected-type: (INTEGER 0 (3)) datum: NIL>
 (defun make-new-generation (board colors old-gen)
-  (let* ((parent-indices (pairwise-indices *population-size*)))
-    (cond ((oddp *population-size*)
-	 (setf parent-indices (append parent-indices (list (1- *population-size*) -1))))) ;-1 is a dummy value
+  (let* ((parent-indices (make-parent-indices)))
     (loop for (idx1 idx2) in parent-indices
        with parent1       
        with parent2       
        with parents       
        with family       
        with family-seq ;sequence of format (fitness-of-member member)
-       with new-gen
-         
+       with new-gen         
        do (setf parent1 (nth idx1 old-gen))
        when (= idx2 -1)
        do (setf new-gen (append new-gen (list parent1))) ;just tack on the last member
        else
-       do (setf family-seq (make-sequence 'list 4)) ;reset family-seq 	       (setf parent2 (nth idx2 old-gen))        
-       and do (setf parents (list parent1 parent2))        
+       do (setf family-seq (make-sequence 'list 4)) ;reset family-seq
+       and do (setf parent2 (nth idx2 old-gen))         
+       and do (setf parents (list parent1 parent2))
        and do (setf family (nuclear-family board colors parents))
        and do (setf new-gen (append new-gen (n-most-fit board 2 family)))
        finally (return new-gen))))
 
+(defun make-fitness-sequence-from-codes (board codes)
+  (let ((L (length codes)))
+    (loop for i from 0 to (1- L)
+       with copy-seq = (make-sequence 'list L)
+       with code
+       do (setf code (nth i codes))
+       do (setf (nth i copy-seq) (list (fitness board code) code))
+       finally (return copy-seq))))
+
 ;;returns a list of the n most fit members of gen
 ;;n must be <= the length of gen
 (defun n-most-fit (board n gen)
-  (let* ((M (1- (length gen)))
-        (gen-seq (make-sequence 'list (length gen))))
-    (loop for i from 0 to M
-       with member
-       do (setf member (nth i gen))         
-       do (setf (nth i gen-seq) (list (fitness board member) member)))
+  (let* ((gen-seq (make-fitness-sequence-from-codes board gen)))
     (stable-sort gen-seq #'> :key #'first)
     (loop for i from 0 to (1- n)
        collect (second (nth i gen-seq)) into result
@@ -239,49 +246,60 @@
 ;;haven't tested below :')
 (defun nilNewts (board colors SCSA last-response)
   (declare (ignore SCSA))
-  (let ((result)
-        (similarities)
+  (let ((similarities)
+        (eligible (list))
         (pass) ;boolean
         (next-guess))
     (cond ((null last-response) ;first round
-	 (setf *response-history* (list))
-	 (setf *guess-history* (list))) ;reset histories
+	 (setf *response-history* '((1 0)))
+	 (setf *guess-history* '((c c c)))) ;reset histories
 	(T (append *response-history* (list last-response)))) ;update response history	   
-    (loop while (not pass)
+    (loop while (or (not pass) (= loop-count 2))
        with old-gen = (make-initial-population board colors)
        with new-gen
-       with new-gen-seq = (make-sequence 'list 0)
-       with eligible
+       with new-gen-seq = (make-sequence 'list *population-size* :initial-element (list))
        with max-fitness
        with min-fitness
        with new-max-fitness
        with new-min-fitness
+       with loop-count = 0
        with unchanged-count = 0
-       do (setf result (make-new-generation board colors old-gen))
-       do (setf new-gen (first result))       
-       do (setf new-gen-seq (make-sequence 'list 0)) ;reset new-gen-seq
-       do (loop for member in new-gen ;populate new-gen-seq
-	   do (append new-gen-seq (list (fitness board member) member))
-	   when (eligiblep member)
-	   do (cons member eligible)) ;end of populate new-gen-seq
+         
+       do (incf loop-count) ;increment loop counter
+       do (setf new-gen (make-new-generation board colors old-gen))       
+       do (setf new-gen-seq (make-sequence 'list *population-size*)) ;reset new-gen-seq
+         
+       do (loop for i from 0 to (1- *population-size*) ;populate new-gen-seq
+       	   with member = (nth i new-gen)
+       	   do (setf member (nth i new-gen))
+	   do (setf (nth i new-gen-seq) (list (fitness board member) member))
+       	   when (eligiblep member)
+       	   do (setf eligible (cons member eligible))) ;end of populate new-gen-seq
        do (stable-sort new-gen-seq #'> :key #'first) ;sort new-gen-seq by descending fitness
        do (setf new-max-fitness (first (first new-gen-seq)))
-       do (setf new-min-fitness (first (first new-gen-seq)))
-       when (and (> new-max-fitness max-fitness) (< new-min-fitness min-fitness))
-       do (incf unchanged-count)
-       else do (setf unchanged-count 0)         
-       when (> new-max-fitness max-fitness)
-       do (setf max-fitness new-max-fitness)
-       when (< new-min-fitness min-fitness)
+       do (setf new-min-fitness (first (first (last new-gen-seq))))
+
+       when (= loop-count 1)
+       do (setf max-fitness new-max-fitness) ;initialize values
        do (setf min-fitness new-min-fitness)
-       when (= unchanged-count 5)
+         
+       when (and (> loop-count 1)
+	       (> new-max-fitness max-fitness) (< new-min-fitness min-fitness)) ;increment unchanged-count
+       do (incf unchanged-count)
+       else do (setf unchanged-count 0)
+         
+       when (and (> loop-count 1) (> new-max-fitness max-fitness)) ;new max
+       do (setf max-fitness new-max-fitness)
+         
+       when (and (> loop-count 1) (< new-min-fitness min-fitness)) ;new min
+       do (setf min-fitness new-min-fitness)
+         
+       when (= unchanged-count 5) ;exit condition
        do (setf pass T)
        do (setf old-gen new-gen)
-       do (setf new-gen nil)) ;end of generation making while-loop
-    do (setf similarities (similarity-scores eligible)) ;sort by descending similarity scores
-    do (stable-sort similarities #'> :key #'first)
+       do (setf new-gen nil))
+    (setf similarities (similarity-scores eligible)) ;sort by descending similarity scores
+    (stable-sort similarities #'> :key #'first)
     (setf next-guess (second (first similarities)))
-    (append *guess-history* (list next-guess))
+    (append *guess-history* (list next-guess)) ;update guess history
     next-guess))
-         
-	     
