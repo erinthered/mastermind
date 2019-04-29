@@ -227,21 +227,12 @@
        with parent1       
        with parent2       
        with parents       
-<<<<<<< HEAD
-       with family       
-      ; with family-seq ;sequence of format (fitness-of-member member)
-=======
        with family
->>>>>>> fe8aa729f1ec3c87b9a6eaa4f71d84b46e758104
        with new-gen         
        do (setf parent1 (nth idx1 old-gen))
        when (= idx2 -1)
        do (setf new-gen (append new-gen (list parent1))) ;just tack on the last member
        else
-<<<<<<< HEAD
-      ; do (setf family-seq (make-sequence 'list 4)) ;reset family-seq
-=======
->>>>>>> fe8aa729f1ec3c87b9a6eaa4f71d84b46e758104
        do (setf parent2 (nth idx2 old-gen))         
        and do (setf parents (list parent1 parent2))
        and do (setf family (nuclear-family board colors parents))
