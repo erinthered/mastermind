@@ -34,7 +34,7 @@
 ;;;Helper Functions (2a) - GA - Initial Population
 ;;;*********************************************************************************************************
 
-;;make initial population for GA
+;;make initial random population for GA
 (defun make-initial-population (code-length colors)
   (loop for i from 1 to *population-size*
      collect (insert-colors code-length colors) into result
@@ -91,34 +91,37 @@
 ;;;Helper Functions (2c) - GA - Local Search
 ;;;*********************************************************************************************************
 
-;; local-search performed on the list of codes 
-;; modifies each child one peg at a time until a local optima is reached
-;; colors contains all the permissible colors in the game  
-;; input-codes contains the population to be checked
-;; optimal-codes should be passed as an empty list and will be returned as an optimal list
-(defun local-search (board colors input-codes)
-  (let* ((optimal-codes '()) ;intialize return list
-         (code (first input-codes))
-         (best-fitness (fitness board code))
-         (best-code code)
-         (num-colors (length colors)))
-         (cond ((endp input-codes)
-	      (return-from local-search optimal-codes))) ;; base case
-         (loop for peg from 0 to (1- board)
-	  with new-code
-	  do (loop for color from 0 to (1- num-colors)
-	        with current-fitness	     
-	        ;; do (format t "~%Optimal Code at beginning: ~a ~%" optimal-codes)
-	        ;; do (format t "Code at beginning: ~a ~%" code)
-	        do (setf new-code code) ;reset new-code
-	        do (setf (nth peg new-code) (nth color colors))
-	        do (setf current-fitness (fitness board new-code))
-	        do (cond ((> current-fitness best-fitness)
-		        (setf best-code new-code)
-		        (setf best-fitness current-fitness)))))
-         (setf optimal-codes (append (list best-code) (local-search board colors (rest input-codes))))
-         (return-from local-search optimal-codes)))
 
+;; Hill climbing local search
+;; Based on local-search algorithm from Oijen
+;; and hill-climbing algorithm from Russell, J., Norvig, P. "Artificial Intelligence: A Modern Approach"
+(defun local-search (board colors child)
+  (loop with current = (copy-list child)
+	with neighbor = (copy-list child)
+	for peg from 0 to (1- (length child))
+	do (setf neighbor (best-successor board colors neighbor peg))
+	do (when (equal neighbor current)
+	     (return current))
+	do (setf current neighbor)
+	finally (return current)))
+
+;; finds local optima of all color changes for a single peg
+;; returns best of successor states or child if child is already local optima
+(defun best-successor (board colors child peg)
+  (loop with best-code = (copy-list child)
+	with best-fitness = (fitness board best-code)
+	with current-code = (copy-list child)
+	with current-fitness = (fitness board current-code)
+	for color in colors
+	do (setf (nth peg current-code) color)
+	do (setf current-fitness (fitness board current-code))
+	do (when (> current-fitness best-fitness)
+	     (setf best-code (copy-list current-code))
+	     (setf best-fitness (fitness board best-code)))
+	finally (return best-code)))
+
+;; fitness function for local algorithm
+;; based on fitness function from Berghman
 (defun fitness (board c)
   (let ((a *fitness-alpha*)
         (b *fitness-beta*)
