@@ -265,8 +265,8 @@
   (let* ((similarities)
          (eligible (list))
          (loop-count 0)
-         (pass) ;boolean
-         (next-guess))
+         (pass)) ;boolean
+      ;   (next-guess))
     (loop while (not pass) ;make next guess using the Berghman GA
        with old-gen = (make-initial-population board colors)
        with new-gen
@@ -312,7 +312,7 @@
 				;(print loop-count)
     (setf similarities (similarity-scores eligible)) ;sort by descending similarity scores
     (setf similarities (stable-sort similarities #'> :key #'first))
-    (setf next-guess (second (first similarities)))))
+    (second (first similarities))))
   
 (defun nilNewts (board colors SCSA last-response)
   (declare (ignore SCSA))
