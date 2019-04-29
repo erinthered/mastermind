@@ -10,7 +10,7 @@
 ;;;Global Variables & Parameters
 ;;;*********************************************************************************************************
 
-(defvar *population-size* 30) ;start with 30 as a baseline, see pg 21 of Oijen
+(defvar *population-size* 60) ;start with 30 as a baseline, see pg 21 of Oijen
 
 ;list containing all guesses made in sequential order
 (defvar *guess-history* (list))
@@ -30,14 +30,25 @@
 (defmethod copy-game ((self game))
   (make-instance 'game :board (board self) :colors (colors self) :number-of-colors (number-of-colors self) :answer (answer self) :SCSA (SCSA self) :guesses (guesses self) :game-cutoff (game-cutoff self)))
 
+;removes previously made guesses from a list of potential guesses
+(defun remove-duplicate-guesses (guesses)
+  (loop for new-guess in guesses
+     when (not (member new-guess *guess-history*))
+     collect new-guess into removed
+     finally (return removed)))
+
 ;;;*********************************************************************************************************
 ;;;Helper Functions (2a) - GA - Initial Population
 ;;;*********************************************************************************************************
 
+;;make initial guess for GA
+(defun make-initial-guess (board)
+  (make-list board :initial-element 'a))
+
 ;;make initial random population for GA
-(defun make-initial-population (code-length colors)
+(defun make-initial-population (board colors)
   (loop for i from 1 to *population-size*
-     collect (insert-colors code-length colors) into result
+     collect (insert-colors board colors) into result
      finally (return result)))
 
 ;;;*********************************************************************************************************
@@ -135,6 +146,8 @@
        do (setf guess (nth i *guess-history*))
        do (setf mock-response (process-guess game-copy guess))
        do (setf response (nth i *response-history*))
+       ;do (print mock-response)
+        ; do (print response)
        sum (abs (- (first mock-response) (first response))) into sum-x
        sum (abs (- (second mock-response) (second response))) into sum-y
        finally (return (+ (* a sum-x) sum-y (* b board N))))))         
@@ -146,20 +159,25 @@
 ;;codes is a list of generated codes
 ;;returns a sequence of (similarity code) over each code in codes, where similarity is as defined in Berghman et al
 (defun similarity-scores (codes)
-  (let ((result (make-sequence 'list 1 :initial-element (list 0 (first codes))))
+  (let ((result)
         (game-copy)        
-        (N (1- (length codes))))    
+        (N (1- (length codes))))
+    (if (> (length codes) 1)
+        (setf result (make-sequence 'list (length codes)))
+        (setf result (make-sequence 'list 1 :initial-element (list 0 (first codes)))))
     (loop for i from 0 to N
-       for c = (nth i codes)         
+       with similarity-score
+       for c = (nth i codes)
+       do (setf similarity-score 0)
        do (setf game-copy nil)         
        do (loop for j from 0 to N	     
 	   for c* = (nth j codes)	     
 	   when (not game-copy) ;entering loop for the first time	     
 	   do (setf game-copy (copy-game *Mastermind*))	     
 	   and do (setf (answer game-copy) c*)	     
-	   when (/= i j)	     
-	   do (setf (nth j result)		  
-		  (list (+ (nth j result) (apply '+ (process-guess game-copy c))) c)))
+	   when (/= i j)
+	   sum (apply '+ (process-guess game-copy c)) into similarity-score)
+       do (setf (nth i result) (list similarity-score  c))
        finally (return result))))
 
 ;;returns T when code is eligible as defined in Berghman et al. Returns nil otherwise
@@ -245,19 +263,13 @@
 ;;; Player
 ;;;*********************************************************************************************************
 
-;;all helper functions are good to go except make-new-generation. see the comment above the function for the error.
-;;haven't tested below :')
-(defun nilNewts (board colors SCSA last-response)
-  (declare (ignore SCSA))
-  (let ((similarities)
-        (eligible (list))
-        (pass) ;boolean
-        (next-guess))
-    (cond ((null last-response) ;first round
-	 (setf *response-history* '((1 0)))
-	 (setf *guess-history* '((c c c)))) ;reset histories
-	(T (append *response-history* (list last-response)))) ;update response history	   
-    (loop while (or (not pass) (= loop-count 2))
+(defun GA-Player (board colors)
+  (let* ((similarities)
+         (eligible (list))
+         (loop-count 0)
+         (pass) ;boolean
+         (next-guess))
+    (loop while (not pass) ;make next guess using the Berghman GA
        with old-gen = (make-initial-population board colors)
        with new-gen
        with new-gen-seq = (make-sequence 'list *population-size* :initial-element (list))
@@ -265,19 +277,17 @@
        with min-fitness
        with new-max-fitness
        with new-min-fitness
-       with loop-count = 0
-       with unchanged-count = 0
-         
+       with unchanged-count = 0	        
        do (incf loop-count) ;increment loop counter
        do (setf new-gen (make-new-generation board colors old-gen))       
        do (setf new-gen-seq (make-sequence 'list *population-size*)) ;reset new-gen-seq
          
        do (loop for i from 0 to (1- *population-size*) ;populate new-gen-seq
-       	   with member = (nth i new-gen)
-       	   do (setf member (nth i new-gen))
+	   with member
+	   do (setf member (nth i new-gen))
 	   do (setf (nth i new-gen-seq) (list (fitness board member) member))
-       	   when (eligiblep member)
-       	   do (setf eligible (cons member eligible))) ;end of populate new-gen-seq
+	   when (eligiblep member)
+	   do (setf eligible (cons member eligible))) ;end of populate new-gen-seq
        do (stable-sort new-gen-seq #'> :key #'first) ;sort new-gen-seq by descending fitness
        do (setf new-max-fitness (first (first new-gen-seq)))
        do (setf new-min-fitness (first (first (last new-gen-seq))))
@@ -287,8 +297,8 @@
        do (setf min-fitness new-min-fitness)
          
        when (and (> loop-count 1)
-	       (> new-max-fitness max-fitness) (< new-min-fitness min-fitness)) ;increment unchanged-count
-       do (incf unchanged-count)
+	       (= new-max-fitness max-fitness) (= new-min-fitness min-fitness)) ;increment unchanged-count
+       do (setf unchanged-count (1+ unchanged-count))
        else do (setf unchanged-count 0)
          
        when (and (> loop-count 1) (> new-max-fitness max-fitness)) ;new max
@@ -301,8 +311,21 @@
        do (setf pass T)
        do (setf old-gen new-gen)
        do (setf new-gen nil))
+				;(print loop-count)
+				;(print eligible)
     (setf similarities (similarity-scores eligible)) ;sort by descending similarity scores
     (stable-sort similarities #'> :key #'first)
-    (setf next-guess (second (first similarities)))
-    (append *guess-history* (list next-guess)) ;update guess history
+    (setf next-guess (second (first similarities)))))
+    
+  
+(defun nilNewts (board colors SCSA last-response)
+  (declare (ignore SCSA))
+  (let* ((next-guess))
+    (cond ((null last-response) ;first round
+	 (setf *response-history* (list))
+	 (setf *guess-history* (list)) ;reset histories
+	 (setf next-guess (make-initial-guess board))) ;make initial guess
+	(T (setf *response-history* (append *response-history* (list last-response))) ;update response history
+	   (setf next-guess (GA-Player board colors))
+	   (setf *guess-history* (append *guess-history* (list next-guess))))) ;update guess history
     next-guess))
