@@ -10,7 +10,7 @@
 ;;;Global Variables & Parameters
 ;;;*********************************************************************************************************
 
-(defvar *population-size* 60) ;start with 30 as a baseline, see pg 21 of Oijen
+(defvar *population-size* 100) ;start with 30 as a baseline, see pg 21 of Oijen
 
 ;list containing all guesses made in sequential order
 (defvar *guess-history* (list))
@@ -31,6 +31,7 @@
   (make-instance 'game :board (board self) :colors (colors self) :number-of-colors (number-of-colors self) :answer (answer self) :SCSA (SCSA self) :guesses (guesses self) :game-cutoff (game-cutoff self)))
 
 ;removes previously made guesses from a list of potential guesses
+;NOT finished
 (defun remove-duplicate-guesses (guesses)
   (loop for new-guess in guesses
      when (not (member new-guess *guess-history*))
@@ -146,8 +147,6 @@
        do (setf guess (nth i *guess-history*))
        do (setf mock-response (process-guess game-copy guess))
        do (setf response (nth i *response-history*))
-       ;do (print mock-response)
-        ; do (print response)
        sum (abs (- (first mock-response) (first response))) into sum-x
        sum (abs (- (second mock-response) (second response))) into sum-y
        finally (return (+ (* a sum-x) sum-y (* b board N))))))         
@@ -201,7 +200,8 @@
 ;;parents is a list of two codes
 (defun nuclear-family (board colors parents)
   (let* ((children (crossover parents))
-         (modified-children (local-search board colors children))
+         (modified-children (list (local-search board colors (first children))
+			    (local-search board colors (second children))))
          (family (append parents modified-children)))
     family))
 
@@ -227,15 +227,13 @@
        with parent1       
        with parent2       
        with parents       
-       with family       
-       with family-seq ;sequence of format (fitness-of-member member)
+       with family
        with new-gen         
        do (setf parent1 (nth idx1 old-gen))
        when (= idx2 -1)
        do (setf new-gen (append new-gen (list parent1))) ;just tack on the last member
        else
-       do (setf family-seq (make-sequence 'list 4)) ;reset family-seq
-       and do (setf parent2 (nth idx2 old-gen))         
+       do (setf parent2 (nth idx2 old-gen))         
        and do (setf parents (list parent1 parent2))
        and do (setf family (nuclear-family board colors parents))
        and do (setf new-gen (append new-gen (n-most-fit board 2 family)))
@@ -312,11 +310,9 @@
        do (setf old-gen new-gen)
        do (setf new-gen nil))
 				;(print loop-count)
-				;(print eligible)
     (setf similarities (similarity-scores eligible)) ;sort by descending similarity scores
     (stable-sort similarities #'> :key #'first)
     (setf next-guess (second (first similarities)))))
-    
   
 (defun nilNewts (board colors SCSA last-response)
   (declare (ignore SCSA))
@@ -325,7 +321,7 @@
 	 (setf *response-history* (list))
 	 (setf *guess-history* (list)) ;reset histories
 	 (setf next-guess (make-initial-guess board))) ;make initial guess
-	(T (setf *response-history* (append *response-history* (list last-response))) ;update response history
-	   (setf next-guess (GA-Player board colors))
-	   (setf *guess-history* (append *guess-history* (list next-guess))))) ;update guess history
+	(T (setf *response-history* (append *response-history* (list (subseq last-response 0 2)))) ;update response history
+	   (setf next-guess (GA-Player board colors))))
+    (setf *guess-history* (append *guess-history* (list next-guess))) ;update guess history
     next-guess))
