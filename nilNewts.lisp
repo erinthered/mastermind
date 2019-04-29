@@ -228,14 +228,14 @@
        with parent2       
        with parents       
        with family       
-       with family-seq ;sequence of format (fitness-of-member member)
+      ; with family-seq ;sequence of format (fitness-of-member member)
        with new-gen         
        do (setf parent1 (nth idx1 old-gen))
        when (= idx2 -1)
        do (setf new-gen (append new-gen (list parent1))) ;just tack on the last member
        else
-       do (setf family-seq (make-sequence 'list 4)) ;reset family-seq
-       and do (setf parent2 (nth idx2 old-gen))         
+      ; do (setf family-seq (make-sequence 'list 4)) ;reset family-seq
+       do (setf parent2 (nth idx2 old-gen))         
        and do (setf parents (list parent1 parent2))
        and do (setf family (nuclear-family board colors parents))
        and do (setf new-gen (append new-gen (n-most-fit board 2 family)))
@@ -254,7 +254,7 @@
 ;;n must be <= the length of gen
 (defun n-most-fit (board n gen)
   (let* ((gen-seq (make-fitness-sequence-from-codes board gen)))
-    (stable-sort gen-seq #'> :key #'first)
+    (setq gen-seq (stable-sort gen-seq #'> :key #'first))
     (loop for i from 0 to (1- n)
        collect (second (nth i gen-seq)) into result
        finally (return result))))         
@@ -288,7 +288,7 @@
 	   do (setf (nth i new-gen-seq) (list (fitness board member) member))
 	   when (eligiblep member)
 	   do (setf eligible (cons member eligible))) ;end of populate new-gen-seq
-       do (stable-sort new-gen-seq #'> :key #'first) ;sort new-gen-seq by descending fitness
+       do (setf new-gen-seq (stable-sort new-gen-seq #'> :key #'first)) ;sort new-gen-seq by descending fitness
        do (setf new-max-fitness (first (first new-gen-seq)))
        do (setf new-min-fitness (first (first (last new-gen-seq))))
 
@@ -314,7 +314,7 @@
 				;(print loop-count)
 				;(print eligible)
     (setf similarities (similarity-scores eligible)) ;sort by descending similarity scores
-    (stable-sort similarities #'> :key #'first)
+    (setf similarities (stable-sort similarities #'> :key #'first))
     (setf next-guess (second (first similarities)))))
     
   
