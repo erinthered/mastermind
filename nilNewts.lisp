@@ -10,7 +10,7 @@
 ;;;Global Variables & Parameters
 ;;;*********************************************************************************************************
 
-(defvar *population-size* 100) ;start with 30 as a baseline, see pg 21 of Oijen
+(defvar *population-size* 30) ;start with 30 as a baseline, see pg 21 of Oijen
 
 ;list containing all guesses made in sequential order
 (defvar *guess-history* (list))
@@ -189,6 +189,7 @@
        with game-copy = (copy-game *Mastermind*)
        when (null mock-response)
        do (setf (answer game-copy) code) ;set the answer for the copy of *Mastermind*
+         
        do (setf guess (nth i *guess-history*))
        do (setf response (nth i *response-history*))
        do (setf mock-response (process-guess game-copy guess))
@@ -262,7 +263,7 @@
 ;;;*********************************************************************************************************
 
 (defun GA-Player (board colors)
-  (let* ((similarities)
+  (let ((similarities)
          (eligible (list))
          (loop-count 0)
          (pass) ;boolean
@@ -277,6 +278,7 @@
        with new-min-fitness
        with unchanged-count = 0	        
        do (incf loop-count) ;increment loop counter
+         ;do (print old-gen)
        do (setf new-gen (make-new-generation board colors old-gen))       
        do (setf new-gen-seq (make-sequence 'list *population-size*)) ;reset new-gen-seq
          
@@ -292,7 +294,7 @@
 
        when (= loop-count 1)
        do (setf max-fitness new-max-fitness) ;initialize values
-       do (setf min-fitness new-min-fitness)
+       and do (setf min-fitness new-min-fitness)
          
        when (and (> loop-count 1)
 	       (= new-max-fitness max-fitness) (= new-min-fitness min-fitness)) ;increment unchanged-count
@@ -305,11 +307,11 @@
        when (and (> loop-count 1) (< new-min-fitness min-fitness)) ;new min
        do (setf min-fitness new-min-fitness)
          
-       when (= unchanged-count 5) ;exit condition
+				;when (= unchanged-count 5) ;exit condition
+       when (= loop-count 5)
        do (setf pass T)
        do (setf old-gen new-gen)
        do (setf new-gen nil))
-				;(print loop-count)
     (setf similarities (similarity-scores eligible)) ;sort by descending similarity scores
     (setf similarities (stable-sort similarities #'> :key #'first))
     (setf next-guess (second (first similarities)))))
