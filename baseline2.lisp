@@ -1,6 +1,6 @@
 (defvar *all-list* nil)
 (defvar *current-list* nil)
-(defvar *our-guess*
+(defvar *our-guess* nil)
 
 (defun enumerate (length colors)
   (cond ((equal 1 length)
