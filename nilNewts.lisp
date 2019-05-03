@@ -44,7 +44,8 @@
 
 ;;make initial guess for GA
 (defun make-initial-guess (board)
-  (make-list board :initial-element 'a))
+  '(a a b b))
+  ;(make-list board :initial-element 'a))
 
 ;;make initial random population for GA
 (defun make-initial-population (board colors)
@@ -127,7 +128,7 @@
 	for color in colors
 	do (setf (nth peg current-code) color)
 	do (setf current-fitness (fitness board current-code))
-	do (when (> current-fitness best-fitness)
+	do (when (< current-fitness best-fitness) ;flipped the inequality
 	     (setf best-code (copy-list current-code))
 	     (setf best-fitness (fitness board best-code)))
 	finally (return best-code)))
@@ -253,7 +254,7 @@
 ;;n must be <= the length of gen
 (defun n-most-fit (board n gen)
   (let* ((gen-seq (make-fitness-sequence-from-codes board gen)))
-    (stable-sort gen-seq #'> :key #'first)
+    (stable-sort gen-seq #'< :key #'first)
     (loop for i from 0 to (1- n)
        collect (second (nth i gen-seq)) into result
        finally (return result))))         
@@ -266,8 +267,7 @@
   (let ((similarities)
          (eligible (list))
          (loop-count 0)
-         (pass) ;boolean
-         (next-guess))
+         (pass)) ;boolean
     (loop while (not pass) ;make next guess using the Berghman GA
        with old-gen = (make-initial-population board colors)
        with new-gen
@@ -278,7 +278,6 @@
        with new-min-fitness
        with unchanged-count = 0	        
        do (incf loop-count) ;increment loop counter
-         ;do (print old-gen)
        do (setf new-gen (make-new-generation board colors old-gen))       
        do (setf new-gen-seq (make-sequence 'list *population-size*)) ;reset new-gen-seq
          
@@ -288,7 +287,7 @@
 	   do (setf (nth i new-gen-seq) (list (fitness board member) member))
 	   when (eligiblep member)
 	   do (setf eligible (cons member eligible))) ;end of populate new-gen-seq
-       do (setf new-gen-seq (stable-sort new-gen-seq #'> :key #'first)) ;sort new-gen-seq by descending fitness
+       do (setf new-gen-seq (stable-sort new-gen-seq #'< :key #'first)) ;sort new-gen-seq by descending fitness
        do (setf new-max-fitness (first (first new-gen-seq)))
        do (setf new-min-fitness (first (first (last new-gen-seq))))
 
@@ -305,16 +304,17 @@
        do (setf max-fitness new-max-fitness)
          
        when (and (> loop-count 1) (< new-min-fitness min-fitness)) ;new min
-       do (setf min-fitness new-min-fitness)
-         
+       do (setf min-fitness new-min-fitness)         
 				;when (= unchanged-count 5) ;exit condition
-       when (= loop-count 5)
+       when (= unchanged-count 5)
        do (setf pass T)
+         
        do (setf old-gen new-gen)
        do (setf new-gen nil))
     (setf similarities (similarity-scores eligible)) ;sort by descending similarity scores
-    (setf similarities (stable-sort similarities #'> :key #'first))
-    (setf next-guess (second (first similarities)))))
+    (setf similarities (stable-sort similarities #'< :key #'first))
+    ;(print eligible)
+    (second (first similarities))))
   
 (defun nilNewts (board colors SCSA last-response)
   (declare (ignore SCSA))
@@ -326,4 +326,5 @@
 	(T (setf *response-history* (append *response-history* (list (subseq last-response 0 2)))) ;update response history
 	   (setf next-guess (GA-Player board colors))))
     (setf *guess-history* (append *guess-history* (list next-guess))) ;update guess history
+    (print next-guess)
     next-guess))
