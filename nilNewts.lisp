@@ -329,9 +329,9 @@
     ;;(print next-guess)
     next-guess))
 
-(defun find-run-time ()
+(defun find-run-time (n p)
   (let ((start-time (get-internal-run-time)))
-    (Mastermind 5 7 'insert-colors)
+    (Mastermind n p 'insert-colors)
     (play-tournament *Mastermind* 'nilNewts 'insert-colors 100)
     (- (get-internal-run-time) start-time)))
 
