@@ -24,12 +24,57 @@
 (defparameter *fitness-beta* 1)
 
 ;;;*********************************************************************************************************
-;;;Helper Functions (1) - General
+;;;Helper Functions (1a) - General
 ;;;*********************************************************************************************************
 
 ;;copy constructor for game class
 (defmethod copy-game ((self game))
   (make-instance 'game :board (board self) :colors (colors self) :number-of-colors (number-of-colors self) :answer (answer self) :SCSA (SCSA self) :guesses (guesses self) :game-cutoff (game-cutoff self)))
+
+;;;*********************************************************************************************************
+;;;Helper Functions (1b) - SCSAs
+;;;*********************************************************************************************************
+
+(defun scsa-weight (scsa code)
+    (cond ((equal scsa 'two-color)
+	   (two-color-weight code))
+	  ((equal scsa 'ab-color)
+	   (ab-color-weight code))
+	  ((equal scsa 'two-color-alternating)
+	   (two-color-alternating-weight code))
+	   (T 0)))
+
+(defun two-color-weight (code)
+  (loop with color1 = (first code)
+	with color2
+	for i from 1 to (1- (length code))
+	do (when (not (equal (nth i code) color1))
+	     (if (equal color2 nil)
+		 (setf color2 (nth i code))
+		 (when (not (equal (nth i code) color2))
+		   (return 1))))
+	finally (return 0)))
+
+(defun ab-color-weight (code)
+  (loop for i from 0 to (1- (length code))
+	do (when (and (not (equal (nth i code) 'A))
+		      (not (equal (nth i code) 'B)))
+	     (return 1))
+	finally (return 0)))
+
+(defun two-color-alternating-weight (code)
+  (loop with color1 = (first code)
+	with color2 = (second code)
+	with alternating-list = (list)
+	for i from 0 to (1- (length code))
+	when (evenp i)
+	  do (setf alternating-list (cons color1 alternating-list))
+	else
+	  do (setf alternating-list (cons color2 alternating-list))
+	finally (if (equal code (reverse alternating-list))
+		    (return 0)
+		    (return 1))))
+		     
 
 ;;;*********************************************************************************************************
 ;;;Helper Functions (2a) - GA - Initial Population
@@ -318,6 +363,7 @@
 
 (defun nilNewts (board colors SCSA last-response)
   (declare (ignore SCSA))
+  ;;(print (SCSA *Mastermind*))
   (let* ((next-guess))
     (cond ((null last-response) ;first round
 	   (setf *response-history* (list))
@@ -326,7 +372,7 @@
 	  (T (setf *response-history* (append *response-history* (list (subseq last-response 0 2)))) ;update response history
 	     (setf next-guess (GA-Player board colors))))
     (setf *guess-history* (append *guess-history* (list next-guess))) ;update guess history
-    ;;(print next-guess)
+   ;; (print next-guess)
     next-guess))
 
 (defun find-run-time (n p)
