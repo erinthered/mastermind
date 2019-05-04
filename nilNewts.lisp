@@ -6,8 +6,6 @@
 
 (defvar *guesses* (list))
 
-(defvar *total-guesses* 0)
-
 (defvar *responses* (list))
 
 (defvar *population-size* 0)
@@ -378,18 +376,23 @@
 		 (setf unchanged-count 0))
 		(T (incf unchanged-count)))
 
-       ;; when (= unchanged-count 5)
-       ;; do (setf pass T)
-       when (= loop-count 10) ;exit condition--needs to be investigated
+       when (= unchanged-count 2)
        do (setf pass T)
+        ;;when (= loop-count 10) ;exit condition--needs to be investigated
+       ;; do (setf pass T)
 
        do (setf prev-gen new-gen)
        finally (setf return-list new-gen)) ;keep the last population
+    (update-total-generations loop-count) ;for measurement
     (least-fit return-list)))
 
 ;;;******************************************************************************
-;;; Metric Functions
+;;; Measurement Functions
 ;;;******************************************************************************
+
+(defvar *total-guesses* 0)
+
+(defvar *total-generations* 0)
 
 (defun reset-total-guesses ()
   (setf *total-guesses* 0))
@@ -397,20 +400,36 @@
 (defun update-total-guesses ()
   (setf *total-guesses* (+ *total-guesses* (length *guesses*))))
 
+(defun reset-total-generations ()
+  (setf *total-generations* 0))
+
+(defun update-total-generations (n)
+  (setf *total-generations* (+ n *total-generations*)))
+
+(defun reset-statistics ()
+  (reset-total-guesses)
+  (reset-history)
+  (reset-total-generations))
+
 (defun statistics (N P SCSA num-games)
-  (let ((start-time (get-internal-run-time))
+  (let ((start-time)
         (end-time)
         (run-time)
         (avg-guesses))
-    (reset-total-guesses) ;reset global var
+    (reset-statistics)
     (Mastermind N P SCSA)
-    (play-tournament *Mastermind* 'nilNewts SCSA num-games)
-    (setf end-time (get-internal-run-time))
-    (setf run-time (/ (float (- end-time start-time)) 10))
+    (setf start-time (get-internal-run-time)) ;start time
+    (play-tournament *Mastermind* 'nilNewts SCSA num-games) ;play tournament
+    (setf end-time (get-internal-run-time)) ;end time
+    (update-total-guesses) ;update total guesses for last game played
+    (setf run-time (- end-time start-time))
+    (setf run-time (/ (float run-time) 10))
     (setf avg-guesses (/ (float *total-guesses*) num-games))
     (format t "~%Total run-time: ~a" run-time)
-    (format t "~%Run-time per round: ~a" (/ run-time num-games))
-    (format t "~%Average guesses: ~a" avg-guesses)))
+    (format t "~%Average guesses: ~a" avg-guesses)
+    (terpri)
+    (format t "~%Population size: ~a" *population-size*)
+    (format t "~%Generations made: ~a" *total-generations*)))
 
 ;;;******************************************************************************
 ;;; nilNewts
@@ -418,7 +437,7 @@
 
 (defun set-values ()
   (set-fitness-a 1)
-  (set-fitness-b 2)
+  (set-fitness-b 1)
   (set-population-size 50))
 
 (defun nilNewts (board colors SCSA last-response)
