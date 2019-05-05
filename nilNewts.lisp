@@ -83,9 +83,8 @@
 	else
 	  do (setf alternating-list (cons color2 alternating-list))
 	finally (if (equal code (reverse alternating-list))
-		    (return 0)
+		    (return -1)
 		    (return 1))))
-		     
 
 ;;;******************************************************************************
 ;;; Helper Functions (2a) - Initialize GA
@@ -170,7 +169,7 @@
 ;;;******************************************************************************
 
 ;; returns the fitness value of a code c
-(defun fitness (c)
+(defun fitness (c SCSA)
   (let ((board (length c))
         (game-copy (copy-game *Mastermind*))
         (i (length *guesses*)))
@@ -181,28 +180,28 @@
        do (setf response-prime (process-guess game-copy guess))
        sum (abs (- (first response-prime) (first response))) into sum-x
        sum (abs (- (second response-prime) (second response))) into sum-y
-       finally (return (+ (* sum-x *fitness-a*) sum-y (* board (1- i) *fitness-b*)))
+       finally (return (+ (* sum-x *fitness-a*) sum-y (* board (1- i) *fitness-b*) (* 1 (scsa-weight c SCSA))))
          )))
 
 ;; returns the member of codes with the lowest fitness value
-(defun least-fit (codes)
+(defun least-fit (codes SCSA)
     (loop for c in codes
        with best = (first codes)
-       with best-fitness = (fitness best)
+       with best-fitness = (fitness best SCSA)
        with current-fitness
-       do (setf current-fitness (fitness c))
+       do (setf current-fitness (fitness c SCSA))
        when (< current-fitness best-fitness)
        do (setf best (copy-list c))
        and do (setf best-fitness current-fitness)
        finally (return best)))
 
 ;; returns the memebr of codes with the highest fitness value
-(defun most-fit (codes)
+(defun most-fit (codes SCSA)
   (loop for c in codes
      with best = (first codes)
-     with best-fitness = (fitness best)
+     with best-fitness = (fitness best SCSA)
      with current-fitness
-     do (setf current-fitness (fitness c))
+     do (setf current-fitness (fitness c SCSA))
      when (> current-fitness best-fitness)
      do (setf best (copy-list c))
      and do (setf best-fitness current-fitness)
@@ -210,11 +209,11 @@
 
 ;; returns the 2 members of codes with the lowest fitness values
 ;; ***depends on slick-value = 0
-(defun 2-least-fit (codes)
+(defun 2-least-fit (codes SCSA)
   (let* ((best (first codes))
-         (best-fitness (fitness best))
+         (best-fitness (fitness best SCSA))
          (next (second codes))
-         (next-fitness (fitness next))
+         (next-fitness (fitness next SCSA))
          (board (length best))
          (slick-value (* board (1- (length *guesses*)) *fitness-b*))
          (dummy))
@@ -227,7 +226,7 @@
 	 (setf next-fitness best-fitness)))
     (loop for c in codes
        with current-fitness
-       do (setf current-fitness (fitness c))
+       do (setf current-fitness (fitness c SCSA))
        when (< current-fitness best-fitness) ;c is better than best
        do (setf dummy best)
        and do (setf best c) ;update best
@@ -245,19 +244,19 @@
        finally (return (list best next)))))
 
 ;; makes a sequences with elements ((fitness c) c) for each c in codes
-(defun fitness-sequence-from-list (codes)
+(defun fitness-sequence-from-list (codes SCSA)
   (let ((L (length codes)))
     (loop for i from 0 to (1- L)
        with fitness-seq = (make-sequence 'list L)
        with code
        do (setf code (nth i codes))
-       do (setf (nth i fitness-seq) (list (fitness code) code))
+       do (setf (nth i fitness-seq) (list (fitness code SCSA) code))
        finally (return fitness-seq))))
 
 ;; codes is a list of codes. does not have to be distinct
 ;; general n-least-fit function for testing. More efficient to use least-fit, 2-least-fit, or write a function when n is a known value.
-(defun n-least-fit (n codes)
-  (let ((fitness-seq (fitness-sequence-from-list codes)))
+(defun n-least-fit (n codes SCSA)
+  (let ((fitness-seq (fitness-sequence-from-list codes SCSA)))
     (setf fitness-seq (stable-sort fitness-seq #'< :key #'first))
     (loop for i from 0 to (1- n)
        collect (second (nth i fitness-seq)) into result
@@ -268,19 +267,19 @@
 ;;;******************************************************************************
 
 ;; Hill climbing local search
-(defun local-search (colors child)
+(defun local-search (colors child SCSA)
   (let ((N (1- (length child)))) ;board-1
     (loop for peg from 0 to N
        with current = (copy-list child)
        with neighbor = (copy-list child)
-       do (setf neighbor (best-successor colors neighbor peg))
+       do (setf neighbor (best-successor colors neighbor peg SCSA))
        when (equal neighbor current)
        do (return current)
        do (setf current (copy-list neighbor))
        finally (return current))))
 
 ;; returns the local optima amongst successors of child which differ by a single peg
-(defun best-successor (colors child peg)
+(defun best-successor (colors child peg SCSA)
   (let ((successors))
     (loop for color in colors
        with successor
@@ -288,7 +287,7 @@
        do (setf (nth peg successor) color)
        collect successor into temp
        finally (setf successors temp))
-    (least-fit successors)))
+    (least-fit successors SCSA)))
 
 ;;;******************************************************************************
 ;;; Helper Functions (2e) - GA making a new generation
@@ -311,15 +310,15 @@
 
 ;;make a family consisting of two parents and two children
 ;;parents is a list of two codes
-(defun nuclear-family (colors parents)
+(defun nuclear-family (colors parents SCSA)
   (let* ((children (crossover parents))
-         (modified-children (list (local-search colors (first children))
-				  (local-search colors (second children))))
+         (modified-children (list (local-search colors (first children) SCSA)
+			    (local-search colors (second children) SCSA)))
          (family (append parents modified-children)))
     family))
 
 ;;makes a new generation from the previous generation using crossover and local search
-(defun make-new-generation (colors prev-gen)
+(defun make-new-generation (colors prev-gen SCSA)
   (let* ((parent-indices (make-parent-indices)))
     (loop for (idx1 idx2) in parent-indices
        with parent1       
@@ -330,11 +329,11 @@
        with dummy
        do (setf parent1 (nth idx1 prev-gen))
        when (= idx2 -1) ;see comment above make-parent-indices
-       do (setf new-gen (cons (local-search colors parent1) new-gen)) ;last child is direct copy of parent1 with only local-search performed
+       do (setf new-gen (cons (local-search colors parent1 SCSA) new-gen)) ;last child is direct copy of parent1 with only local-search performed
        else do (setf parent2 (nth idx2 prev-gen))       
        and do (setf parents (list parent1 parent2))
-       and do (setf family (nuclear-family colors parents))
-       and do (setf dummy (2-least-fit family))
+       and do (setf family (nuclear-family colors parents SCSA))
+       and do (setf dummy (2-least-fit family SCSA))
        and do (setf new-gen (cons (first dummy) new-gen))
        and do (setf new-gen (cons (second dummy) new-gen))
        finally (return new-gen))))
@@ -392,7 +391,6 @@
 ;;;******************************************************************************
 
 (defun GA-Player (board colors SCSA)
-  (declare (ignore SCSA))
   (let* ((pass) ;exit condition
          (return-list)
          (loop-count 0))
@@ -405,13 +403,13 @@
        with current-max-fitness
        with unchanged-count = 0
        do (incf loop-count)
-       do (setf new-gen (make-new-generation colors prev-gen)) ;make the new generation
+       do (setf new-gen (make-new-generation colors prev-gen SCSA)) ;make the new generation
        when (= loop-count 1) ;initialize values for max and min fitness
-       do (setf max-fitness (fitness (most-fit new-gen)))
-       and do (setf min-fitness (fitness (least-fit new-gen)))
+       do (setf max-fitness (fitness (most-fit new-gen SCSA) SCSA))
+       and do (setf min-fitness (fitness (least-fit new-gen SCSA) SCSA))
        when (> loop-count 1)
-       do (setf current-max-fitness (fitness (most-fit new-gen))) ;update current max fitness
-       and do (setf current-min-fitness (fitness (least-fit new-gen))) ;update current min fitness
+       do (setf current-max-fitness (fitness (most-fit new-gen SCSA) SCSA)) ;update current max fitness
+       and do (setf current-min-fitness (fitness (least-fit new-gen SCSA) SCSA)) ;update current min fitness
        and do (cond ((> current-max-fitness max-fitness)
 		 (setf max-fitness current-max-fitness)
 		 (setf unchanged-count 0))
@@ -429,7 +427,7 @@
        do (setf prev-gen new-gen)
        finally (setf return-list new-gen)) ;keep the last population
     (update-total-generations loop-count) ;for measurement
-    (least-fit return-list)))
+    (least-fit return-list SCSA)))
 
 ;;;******************************************************************************
 ;;; Measurement Functions
