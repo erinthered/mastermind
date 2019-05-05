@@ -86,6 +86,16 @@
 		    (return -1)
 		    (return 1))))
 
+(defun only-once-weight (code)
+  (loop with hash-counter = (make-hash-table)
+	with weight = 0
+	for letter in code
+	when (not (gethash letter hash-counter))
+	  do (setf (gethash letter hash-counter) 0)
+	do (setf (gethash letter hash-counter) (1+ (gethash letter hash-counter)))
+	   when (cond (> (gethash letter hash-c
+;;	finally (maphash #'(lambda (k v weight) (format t "~a => ~a~%" k v)) hash-counter)))
+
 ;;;******************************************************************************
 ;;; Helper Functions (2a) - Initialize GA
 ;;;******************************************************************************
