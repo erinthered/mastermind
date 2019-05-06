@@ -118,6 +118,7 @@
 (defun first-and-last-weight (code)
   (if (equal (first code) (first (last code))) 0 1))
 
+<<<<<<< HEAD
 ;;choose 2 or 3 colors with p = 0.9
 (defun usually-fewer-weight (code)
   (let* ((color-count (color-counter *Mastermind* code))
@@ -143,6 +144,8 @@
 	((= present 5) 0.03)
 	(T 0.02))))
          
+=======
+>>>>>>> 9f61894f997d8aea103ceaba041b085abc04e64b
 ;;;******************************************************************************
 ;;; Helper Functions (2a) - Initialize GA
 ;;;******************************************************************************
