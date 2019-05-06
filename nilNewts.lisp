@@ -5,13 +5,9 @@
 ;;;Oijen, V. (2018). Genetic Algorithms Playing Mastermind. Utrecht University Bachelor Thesis, Netherlands.
 
 (defvar *guesses* (list))
-
 (defvar *responses* (list))
-
 (defvar *population-size* 0)
-
 (defvar *fitness-a* 0)
-
 (defvar *fitness-b* 0)
 
 ;;;*********************************************************************************************************
@@ -60,8 +56,8 @@
 (defun scsa-weight (scsa code)
     (cond ((equal scsa 'two-color) ;two color
 	   (two-color-weight code))
-	  ((equal scsa 'ab-color) ;ab color
-	   (ab-color-weight code))
+	  ;; ((equal scsa 'ab-color) ;ab color
+	  ;;  (ab-color-weight code))
 	  ((equal scsa 'two-color-alternating) ;two-color-alternating
 	   (two-color-alternating-weight code))
 	  ((equal scsa 'only-once) ;only-once
@@ -85,12 +81,12 @@
 		   (return 1))))
 	finally (return 0)))
 
-(defun ab-color-weight (code)
-  (loop for i from 0 to (1- (length code))
-	do (when (and (not (equal (nth i code) 'A))
-		      (not (equal (nth i code) 'B)))
-	     (return 1))
-	finally (return 0)))
+;; (defun ab-color-weight (code)
+;;   (loop for i from 0 to (1- (length code))
+;; 	do (when (and (not (equal (nth i code) 'A))
+;; 		      (not (equal (nth i code) 'B)))
+;; 	     (return 1))
+;; 	finally (return 0)))
 
 (defun two-color-alternating-weight (code)
   (loop with color1 = (first code)
@@ -118,7 +114,6 @@
 (defun first-and-last-weight (code)
   (if (equal (first code) (first (last code))) 0 1))
 
-<<<<<<< HEAD
 ;;choose 2 or 3 colors with p = 0.9
 (defun usually-fewer-weight (code)
   (let* ((color-count (color-counter *Mastermind* code))
@@ -144,8 +139,6 @@
 	((= present 5) 0.03)
 	(T 0.02))))
          
-=======
->>>>>>> 9f61894f997d8aea103ceaba041b085abc04e64b
 ;;;******************************************************************************
 ;;; Helper Functions (2a) - Initialize GA
 ;;;******************************************************************************
@@ -508,8 +501,8 @@
 ;;;******************************************************************************
 
 (defvar *total-guesses* 0)
-
 (defvar *total-generations* 0)
+(defvar *failed-guesses* 0)
 
 (defun reset-total-guesses ()
   (setf *total-guesses* 0))
@@ -523,29 +516,50 @@
 (defun update-total-generations (n)
   (setf *total-generations* (+ n *total-generations*)))
 
+(defun reset-failed-guesses ()
+  (setf *failed-guesses* 0))
+
 (defun reset-statistics ()
   (reset-total-guesses)
   (reset-history)
-  (reset-total-generations))
+  (reset-total-generations)
+  (reset-failed-guesses))
 
-(defun single-statistics (N P player SCSA num-games)
+;;insert the following line into play-tournament under the when (null round) condition
+;;and do (setf *lost-guesses* (+ *lost-guesses* (length *guesses*)))
+(defun statistics (P N player SCSA num-games)
   (let ((start-time)
         (end-time)
         (run-time)
         (avg-guesses)
-        (return-list))
+        (won-guesses)
+        (return-list)
+        (losses) ;number of losses
+        (failures)
+        (wins)) ;number of wins
     (reset-statistics)
-    (Mastermind N P SCSA)
+    (Mastermind P N SCSA)
     (setf start-time (get-internal-run-time)) ;start time
     (setf return-list (play-tournament *Mastermind* player SCSA num-games)) ;play tournament
     (setf end-time (get-internal-run-time)) ;end time
+    (setf losses (second return-list))
+    (setf failures (third return-list))
+    (setf wins (- num-games (+ losses failures)))
+    
     (update-total-guesses) ;update total guesses for last game played
+    (setf won-guesses (- *total-guesses*
+		     (* 100 losses) ;100 guesses results in loss
+		     *failed-guesses*))
+    
     (setf run-time (- end-time start-time))
     (setf run-time (/ (float run-time) 10))
+    
     (setf avg-guesses (/ (float *total-guesses*) num-games))
+    (setf won-guesses (/ (float won-guesses) wins))
     (format t "~%(wins losses failures): ~a" return-list)
     (format t "~%Total run-time: ~a ms" run-time)
     (format t "~%Average guesses: ~a" avg-guesses)
+    (format t "~%Average guesses when won: ~a" won-guesses)
     (terpri)
     (format t "~%Population size: ~a" *population-size*)
     (format t "~%Generations made: ~a" *total-generations*)))
