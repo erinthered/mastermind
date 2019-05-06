@@ -31,9 +31,11 @@
 (defun set-fitness-b (b)
   (setf *fitness-b* b))
 
-(defun reset-history ()
-  (setf *responses* (list))
-  (setf *guesses* (list)))
+;; set parameter values for the GA
+(defun set-values (a b p)
+  (set-fitness-a a)
+  (set-fitness-b b)
+  (set-population-size p))
 
 (defun update-responses (full-response)
   (let ((bullscows (list (subseq full-response 0 2))))
@@ -42,17 +44,34 @@
 (defun update-guesses (guess)
   (setf *guesses* (append *guesses* (list guess))))
 
+(defun reset-history ()
+  (setf *responses* (list))
+  (setf *guesses* (list)))
+
+;;returns T if the code has already been guessed
+(defun guessedp (code)
+  (cond ((member code *guesses* :test 'equal) T)
+        (T nil)))
+
 ;;;*********************************************************************************************************
 ;;;Helper Functions (1b) - SCSAs
 ;;;*********************************************************************************************************
 
 (defun scsa-weight (scsa code)
-    (cond ((equal scsa 'two-color)
+    (cond ((equal scsa 'two-color) ;two color
 	   (two-color-weight code))
-	  ((equal scsa 'ab-color)
+	  ((equal scsa 'ab-color) ;ab color
 	   (ab-color-weight code))
-	  ((equal scsa 'two-color-alternating)
+	  ((equal scsa 'two-color-alternating) ;two-color-alternating
 	   (two-color-alternating-weight code))
+	  ((equal scsa 'only-once) ;only-once
+	   (only-once-weight code))
+	  ((equal scsa 'first-and-last) ;first-and-last
+	   (first-and-last-weight code))
+	  ((equal scsa 'usually-fewer) ;usually-fewer
+	   (usually-fewer-weight code))
+	  ((equal scsa 'prefer-fewer) ;prefer-fewer
+	   (prefer-fewer-weight code))
 	   (T 0)))
 
 (defun two-color-weight (code)
@@ -83,9 +102,47 @@
 	else
 	  do (setf alternating-list (cons color2 alternating-list))
 	finally (if (equal code (reverse alternating-list))
-		    (return -1)
+		    (return 0)
 		    (return 1))))
 
+(defun only-once-weight (code)
+  (loop with hash-counter = (make-hash-table)
+	for letter in code
+	when (not (gethash letter hash-counter))
+	  do (setf (gethash letter hash-counter) 0)
+	do (setf (gethash letter hash-counter) (1+ (gethash letter hash-counter)))
+	when (> (gethash letter hash-counter) 1)
+	  do (return 1)
+	finally (return 0)))
+
+(defun first-and-last-weight (code)
+  (if (equal (first code) (first (last code))) 0 1))
+
+;;choose 2 or 3 colors with p = 0.9
+(defun usually-fewer-weight (code)
+  (let* ((color-count (color-counter *Mastermind* code))
+         (missing (count 0 color-count))
+         (present (- (number-of-colors *Mastermind*) missing)))
+    (cond ((or (= present 2) (= present 3)) 0.9)
+	(T 0.1))))
+
+;; choose 1 color with p = 0.49
+;; choose 2 colors with p = 0.25
+;; choose 3 colors with p = 0.13
+;; choose 4 colors with p = 0.08
+;; choose 5 colors with p = 0.03
+;; choose 6 or more with p = 0.02
+(defun prefer-fewer-weight (code)
+  (let* ((color-count (color-counter *Mastermind* code))
+         (missing (count 0 color-count))
+         (present (- (number-of-colors *Mastermind*) missing)))
+    (cond ((= present 1) 0.49)
+	((= present 2) 0.25)
+	((= present 3) 0.13)
+	((= present 4) 0.08)
+	((= present 5) 0.03)
+	(T 0.02))))
+         
 ;;;******************************************************************************
 ;;; Helper Functions (2a) - Initialize GA
 ;;;******************************************************************************
@@ -127,41 +184,41 @@
 (defun crossover (parents)
   (let ((crossover-type (+ 1 (random 2))))  ;choose 1 or 2, 1/2 probability of choosing one or two point crossover
     (if (= crossover-type 1)
-	(one-point-crossover parents)
-	(two-point-crossover parents))))
+        (one-point-crossover parents)
+        (two-point-crossover parents))))
 
 ;;one point crossover helper function, splits parent lists at one point and recombines into two child lists
 (defun one-point-crossover (parents)
   (let ((child1 (list))
-	(child2 (list)))
+        (child2 (list)))
     (loop with n = (length (first parents))
-	  with index = (+ 1 (random (- n 1)))
-	  for i from 0 to (- n 1)
-	  when (< i index)
-	    do (setf child1 (cons (nth i (first parents)) child1))
-	    and do (setf child2 (cons (nth i (second parents)) child2))
-	  else when (>= i index)
-		 do (setf child1 (cons (nth i (second parents)) child1))
-		 and do (setf child2 (cons (nth i (first parents)) child2))
-	  finally (return (list (reverse child1) (reverse child2))))))
+       with index = (+ 1 (random (- n 1)))
+       for i from 0 to (- n 1)
+       when (< i index)
+       do (setf child1 (cons (nth i (first parents)) child1))
+       and do (setf child2 (cons (nth i (second parents)) child2))
+       else when (>= i index)
+       do (setf child1 (cons (nth i (second parents)) child1))
+       and do (setf child2 (cons (nth i (first parents)) child2))
+       finally (return (list (reverse child1) (reverse child2))))))
 
 ;;two point crossover helper function, splits parent lists at two points and recombines into two child lists
 (defun two-point-crossover (parents)
   (let ((child1 (list))
-	(child2 (list)))
+        (child2 (list)))
     (loop with n = (length (first parents))
-	  with index1 = (+ 1 (random (- n 2)))
-	  with index2 = (+ (+ 1 index1) (random (- (- n 1) index1)))
-	  for i from 0 to (- n 1)
-	  when (< i index1)
-	    do (setf child1 (cons (nth i (first parents)) child1))
-	    and do (setf child2 (cons (nth i (second parents)) child2))
-	  else when (< i index2)
-		 do (setf child1 (cons (nth i (second parents)) child1))
-		 and do (setf child2 (cons (nth i (first parents)) child2))
-	  else when (>= i index2)
-		 do (setf child1 (cons (nth i (first parents)) child1))
-		 and do (setf child2 (cons (nth i (second parents)) child2))
+       with index1 = (+ 1 (random (- n 2)))
+       with index2 = (+ (+ 1 index1) (random (- (- n 1) index1)))
+       for i from 0 to (- n 1)
+       when (< i index1)
+       do (setf child1 (cons (nth i (first parents)) child1))
+       and do (setf child2 (cons (nth i (second parents)) child2))
+       else when (< i index2)
+       do (setf child1 (cons (nth i (second parents)) child1))
+       and do (setf child2 (cons (nth i (first parents)) child2))
+       else when (>= i index2)
+       do (setf child1 (cons (nth i (first parents)) child1))
+       and do (setf child2 (cons (nth i (second parents)) child2))
        finally (return (list (reverse child1) (reverse child2))))))
 
 ;;;******************************************************************************
@@ -180,20 +237,24 @@
        do (setf response-prime (process-guess game-copy guess))
        sum (abs (- (first response-prime) (first response))) into sum-x
        sum (abs (- (second response-prime) (second response))) into sum-y
-       finally (return (+ (* sum-x *fitness-a*) sum-y (* board (1- i) *fitness-b*) (* 1 (scsa-weight c SCSA))))
+       finally (return (+ (* sum-x *fitness-a*)
+		      sum-y		      
+		      ;(* board (1- i) *fitness-b*)
+		      (* board (1- i) *fitness-b* (scsa-weight c SCSA))
+		      ))
          )))
 
 ;; returns the member of codes with the lowest fitness value
 (defun least-fit (codes SCSA)
-    (loop for c in codes
-       with best = (first codes)
-       with best-fitness = (fitness best SCSA)
-       with current-fitness
-       do (setf current-fitness (fitness c SCSA))
-       when (< current-fitness best-fitness)
-       do (setf best (copy-list c))
-       and do (setf best-fitness current-fitness)
-       finally (return best)))
+  (loop for c in codes
+     with best = (first codes)
+     with best-fitness = (fitness best SCSA)
+     with current-fitness
+     do (setf current-fitness (fitness c SCSA))
+     when (< current-fitness best-fitness)
+     do (setf best (copy-list c))
+     and do (setf best-fitness current-fitness)
+     finally (return best)))
 
 ;; returns the memebr of codes with the highest fitness value
 (defun most-fit (codes SCSA)
@@ -393,7 +454,8 @@
 (defun GA-Player (board colors SCSA)
   (let* ((pass) ;exit condition
          (return-list)
-         (loop-count 0))
+         (loop-count 0)
+         (result))
     (loop while (not pass) ;make next guess using the Berghman GA
        with prev-gen = (make-initial-population board colors)
        with new-gen
@@ -421,13 +483,22 @@
 
        when (= unchanged-count 2)
        do (setf pass T)
-        ;;when (= loop-count 10) ;exit condition--needs to be investigated
-       ;; do (setf pass T)
+       ;;when (= loop-count 3) ;exit condition--needs to be investigated
+       ;;do (setf pass T)
+       ;;do (print max-fitness)
+         ;;do (print (most-fit new-gen SCSA))
+       ;;do (print min-fitness)
+         ;;do (print (least-fit new-gen SCSA))
 
        do (setf prev-gen new-gen)
        finally (setf return-list new-gen)) ;keep the last population
     (update-total-generations loop-count) ;for measurement
-    (least-fit return-list SCSA)))
+    (setf return-list (remove-if #'guessedp return-list)) ;no duplicate guesses allowed
+    (setf result (member-if #'eligiblep return-list))
+    (least-fit return-list SCSA)
+    ;;(cond ((not (null result)) (first result))
+	;;(T (least-fit return-list SCSA)))
+    ))
 
 ;;;******************************************************************************
 ;;; Measurement Functions
@@ -454,21 +525,47 @@
   (reset-history)
   (reset-total-generations))
 
-(defun statistics (N P SCSA num-games)
+;;statistics for tournaments of 100 games each
+(defun multi-statistics (N P player SCSA num-tournaments)
   (let ((start-time)
         (end-time)
         (run-time)
-        (avg-guesses))
+        (avg-guesses)
+        (return-list))
     (reset-statistics)
     (Mastermind N P SCSA)
     (setf start-time (get-internal-run-time)) ;start time
-    (play-tournament *Mastermind* 'nilNewts SCSA num-games) ;play tournament
+    (play-tournament *Mastermind* player SCSA (* 100 num-tournaments)) ;play tournament
+    (setf end-time (get-internal-run-time)) ;end time
+    (update-total-guesses) ;update total guesses for last game played
+    (setf run-time (- end-time start-time))
+    (setf run-time (/ (float run-time) 10))
+    (setf avg-guesses (/ (float *total-guesses*) (* 100 num-tournaments)))
+    (format t "~%(wins losses failues): ~a" return-list)
+    (format t "~%Total run-time: ~a ms" run-time)
+    (format t "~%Average run-time (per tournament): ~a ms" (/ run-time num-tournaments))
+    (format t "~%Average guesses: ~a" avg-guesses)
+    (terpri)
+    (format t "~%Population size: ~a" *population-size*)
+    (format t "~%Generations made: ~a" *total-generations*)))
+
+(defun single-statistics (N P player SCSA num-games)
+  (let ((start-time)
+        (end-time)
+        (run-time)
+        (avg-guesses)
+        (return-list))
+    (reset-statistics)
+    (Mastermind N P SCSA)
+    (setf start-time (get-internal-run-time)) ;start time
+    (setf return-list (play-tournament *Mastermind* player SCSA num-games)) ;play tournament
     (setf end-time (get-internal-run-time)) ;end time
     (update-total-guesses) ;update total guesses for last game played
     (setf run-time (- end-time start-time))
     (setf run-time (/ (float run-time) 10))
     (setf avg-guesses (/ (float *total-guesses*) num-games))
-    (format t "~%Total run-time: ~a" run-time)
+    (format t "~%(wins losses failures): ~a" return-list)
+    (format t "~%Total run-time: ~a ms" run-time)
     (format t "~%Average guesses: ~a" avg-guesses)
     (terpri)
     (format t "~%Population size: ~a" *population-size*)
@@ -478,19 +575,18 @@
 ;;; nilNewts
 ;;;******************************************************************************
 
-(defun set-values ()
-  (set-fitness-a 1)
-  (set-fitness-b 1)
-  (set-population-size 50))
-
 (defun nilNewts (board colors SCSA last-response)
-  (let ((next))
-    (cond ((null last-response) ;first round
+  (let ((next)
+        (colors* colors))
+    (cond ((equal SCSA 'ab-color) (setf colors* '(a b))))
+    (cond ((null last-response) ;first round, initializing values
 	 (update-total-guesses)
-	 (reset-history)
-	 (set-values)
-	 (setf next (make-initial-guess board colors)))
+	 (reset-history) ;reset global variables
+	 (set-values 1 1 50)
+	 ;(set-values 1 1 (- 100 (1- (length *guesses*)))) ;uncomment for actual playing
+	 (setf next (make-initial-guess board colors*)))
 	(T (update-responses last-response)
-	   (setf next (GA-Player board colors SCSA))))
+	   (setf next (GA-Player board colors* SCSA))))
     (update-guesses next)
+    ;(print next)
     next))
