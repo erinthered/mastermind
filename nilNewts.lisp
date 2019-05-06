@@ -326,7 +326,7 @@
 	  (T (setf *response-history* (append *response-history* (list (subseq last-response 0 2)))) ;update response history
 	     (setf next-guess (GA-Player board colors))))
     (setf *guess-history* (append *guess-history* (list next-guess))) ;update guess history
-    ;;(print next-guess)
+    (print next-guess)
     next-guess))
 
 (defun find-run-time (n p)
