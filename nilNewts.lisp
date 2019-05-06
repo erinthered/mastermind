@@ -525,30 +525,6 @@
   (reset-history)
   (reset-total-generations))
 
-;;statistics for tournaments of 100 games each
-(defun multi-statistics (N P player SCSA num-tournaments)
-  (let ((start-time)
-        (end-time)
-        (run-time)
-        (avg-guesses)
-        (return-list))
-    (reset-statistics)
-    (Mastermind N P SCSA)
-    (setf start-time (get-internal-run-time)) ;start time
-    (play-tournament *Mastermind* player SCSA (* 100 num-tournaments)) ;play tournament
-    (setf end-time (get-internal-run-time)) ;end time
-    (update-total-guesses) ;update total guesses for last game played
-    (setf run-time (- end-time start-time))
-    (setf run-time (/ (float run-time) 10))
-    (setf avg-guesses (/ (float *total-guesses*) (* 100 num-tournaments)))
-    (format t "~%(wins losses failues): ~a" return-list)
-    (format t "~%Total run-time: ~a ms" run-time)
-    (format t "~%Average run-time (per tournament): ~a ms" (/ run-time num-tournaments))
-    (format t "~%Average guesses: ~a" avg-guesses)
-    (terpri)
-    (format t "~%Population size: ~a" *population-size*)
-    (format t "~%Generations made: ~a" *total-generations*)))
-
 (defun single-statistics (N P player SCSA num-games)
   (let ((start-time)
         (end-time)
