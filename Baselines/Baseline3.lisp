@@ -55,12 +55,11 @@
 				(setf *color-counter* (+ *color-counter* 1)))
 			(T
 				(cond (	(= *color-counter* (- (length colors) 1))
-								(map-response-to-colors colors)
-								(generate-eligible board colors)))
+						(map-response-to-colors colors)
+						(generate-eligible board colors)))
 				(setf guess-sequence (first *eligible*))
 				(push guess-sequence *guess-list*)
-				(setf *eligible* (rest *eligible*))
-				))
+				(setf *eligible* (rest *eligible*))))
 			;; print(guess-sequence)
 		guess-sequence))
 
