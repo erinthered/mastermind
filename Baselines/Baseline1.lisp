@@ -13,7 +13,7 @@
 	(let ((guess))
 	(cond ((not last-response)
 				 (setf *guess-list* (enumerate board colors)))
-				(T (setf *guess-list* (rest *guess-list*))))
+				(T (s3etf *guess-list* (rest *guess-list*))))
 	(setf guess (first *guess-list*))))
 
 
