@@ -3,12 +3,14 @@
 (defvar *color-counter* 0)
 (defvar *eligible* nil)
 
+;; generates a list of individual colors
 (defun generate-individual-colors (board colors)
 	(let ((peg))
 	(loop for i from 0 to (1- board)
 		do(setf peg (nth *color-counter* colors))
 		collect peg)))
 
+;; populates the list of eligible code and removes duplicates
 (defun populate-list (board eligible-code)
 	(let ((other-eligible-code (copy-list eligible-code)))	
 		(loop for i from 0 to (1- board)
@@ -22,6 +24,7 @@
 	)
 )
 
+;; generates the first eligible code and calls helper function to derive all other eligible codes
 (defun generate-eligible (board colors)
 	(let 	((remaining-pegs board)
 					(eligible-code nil))
@@ -37,6 +40,7 @@
 	)
 )
 
+;; maps the response from the game to create a list of responses
 (defun map-response-to-colors (colors)
 	(let ((color-limit (- (length colors) 2)))
 		(setf *color-counter* (+ *color-counter* 1))
@@ -44,6 +48,9 @@
 			do(setf (nth (- color-limit i) *response-list*)
 							(list (nth i colors) (nth 0 (nth (- color-limit i) *response-list*)))))))
 
+;; main player for baseline-3
+;; the first colors-1 guesses will be a list of the same colors
+;; then it uses the responses as a knowledge base to generate a list of other eligible codes
 (defun baseline-3 (board colors last-response)
 	(let ((guess-sequence))
 	(cond (	(and (> *color-counter* 0) (< *color-counter* (length colors)))
