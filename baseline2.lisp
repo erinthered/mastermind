@@ -22,7 +22,7 @@
 	(declare (ignore SCSA))
 	(COND
 		((equal last-response nil)
-		 (setf *all-list* (enumerate colors board))
+		 (setf *all-list* (enumerate board colors))
 		 (avoids)
 		 (setf *our-guess* (first *current-list*)))))
 		 
