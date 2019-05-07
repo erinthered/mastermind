@@ -28,10 +28,9 @@
   (setf *fitness-b* b))
 
 ;; set parameter values for the GA
-(defun set-values (a b p)
+(defun set-parameters (a b)
   (set-fitness-a a)
-  (set-fitness-b b)
-  (set-population-size p))
+  (set-fitness-b b))
 
 (defun update-responses (full-response)
   (let ((bullscows (list (subseq full-response 0 2))))
@@ -53,22 +52,33 @@
 ;;;Helper Functions (1b) - SCSAs
 ;;;*********************************************************************************************************
 
+;; individual SCSA weight functions are real valued functions which return from the range [0,1]. 0 indicates a full match and 1 indicates a full mismatch.
+;; the return value from the weight functions are shifted down one to increase preference towards mmatches, as the algorithm seeks to minimize the fitness value.
 (defun scsa-weight (scsa code)
-    (cond ((equal scsa 'two-color) ;two color
-	   (two-color-weight code))
-	  ;; ((equal scsa 'ab-color) ;ab color
-	  ;;  (ab-color-weight code))
-	  ((equal scsa 'two-color-alternating) ;two-color-alternating
-	   (two-color-alternating-weight code))
-	  ((equal scsa 'only-once) ;only-once
-	   (only-once-weight code))
-	  ((equal scsa 'first-and-last) ;first-and-last
-	   (first-and-last-weight code))
-	  ((equal scsa 'usually-fewer) ;usually-fewer
-	   (usually-fewer-weight code))
-	  ((equal scsa 'prefer-fewer) ;prefer-fewer
-	   (prefer-fewer-weight code))
-	   (T 0)))
+  (let ((w (cond ((equal scsa 'two-color) ;two color
+	        (two-color-weight code))
+	       ((equal scsa 'two-color-alternating) ;two-color-alternating
+	        (two-color-alternating-weight code))
+	       ((equal scsa 'only-once) ;only-once
+	        (only-once-weight code))
+	       ((equal scsa 'first-and-last) ;first-and-last
+	        (first-and-last-weight code))
+	       ((equal scsa 'usually-fewer) ;usually-fewer
+	        (usually-fewer-weight code))
+	       ((equal scsa 'prefer-fewer) ;prefer-fewer
+	        (prefer-fewer-weight code))
+	       ((equal scsa 'mystery-1) ;mystery-1
+	        (mystery-1-weight code))
+	       ((equal scsa 'mystery-3) ;mystery-3
+	        (mystery-3-weight code))
+	       ((equal scsa 'mystery-4) ;mystery-4
+	        (mystery-4-weight code))
+	       ((equal scsa 'mystery-5) ;mystery-5
+	        (two-color-alternating-weight code))
+	       (T 0))))
+    (1- w)
+    ;w
+    ))
 
 (defun two-color-weight (code)
   (loop with color1 = (first code)
@@ -80,14 +90,7 @@
 		 (when (not (equal (nth i code) color2))
 		   (return 1))))
 	finally (return 0)))
-
-;; (defun ab-color-weight (code)
-;;   (loop for i from 0 to (1- (length code))
-;; 	do (when (and (not (equal (nth i code) 'A))
-;; 		      (not (equal (nth i code) 'B)))
-;; 	     (return 1))
-;; 	finally (return 0)))
-
+       
 (defun two-color-alternating-weight (code)
   (loop with color1 = (first code)
 	with color2 = (second code)
@@ -129,16 +132,44 @@
 ;; choose 5 colors with p = 0.03
 ;; choose 6 or more with p = 0.02
 (defun prefer-fewer-weight (code)
-  (let* ((color-count (color-counter *Mastermind* code))
-         (missing (count 0 color-count))
-         (present (- (number-of-colors *Mastermind*) missing)))
+  (let* ((color-count (color-counter *Mastermind* code)) ;array
+         (present (count-if #'plusp color-count)))
     (cond ((= present 1) 0.49)
 	((= present 2) 0.25)
 	((= present 3) 0.13)
 	((= present 4) 0.08)
 	((= present 5) 0.03)
 	(T 0.02))))
-         
+
+(defun mystery-1-weight (code)
+  (let* ((color-count (color-counter *Mastermind* code)) ;array
+         (present (count-if #'plusp color-count)))
+    (case present
+      (1 (- 1 (/ (float 89) 200)))
+      (2 (- 1 (/ (float 91) 200)))
+      (3 (- 1 (/ (float 6) 200)))
+      (4 (- 1 (/ (float 9) 200)))
+      (5 (- 1 (/ (float 5) 200)))
+      (T 1)
+      )))
+
+(defun mystery-3-weight (code)
+  (let* ((color-count (color-counter *Mastermind* code)) ;array
+         (present (count-if #'plusp color-count)))
+    (case present
+      (3 0)
+      (T 1))))
+
+(defun mystery-4-weight (code)
+  (let* ((color-count (color-counter *Mastermind* code)) ;array
+         (present (count-if #'plusp color-count)))
+    (case present
+      (2 (- 1 (/ (float 7) 200)))
+      (3 (- 1 (/ (float 88) 200)))
+      (4 (- 1 (/ (float 105) 200)))
+      (T 1)
+      )))
+
 ;;;******************************************************************************
 ;;; Helper Functions (2a) - Initialize GA
 ;;;******************************************************************************
@@ -310,15 +341,6 @@
        do (setf (nth i fitness-seq) (list (fitness code SCSA) code))
        finally (return fitness-seq))))
 
-;; codes is a list of codes. does not have to be distinct
-;; general n-least-fit function for testing. More efficient to use least-fit, 2-least-fit, or write a function when n is a known value.
-(defun n-least-fit (n codes SCSA)
-  (let ((fitness-seq (fitness-sequence-from-list codes SCSA)))
-    (setf fitness-seq (stable-sort fitness-seq #'< :key #'first))
-    (loop for i from 0 to (1- n)
-       collect (second (nth i fitness-seq)) into result
-       finally (return result))))
-
 ;;;******************************************************************************
 ;;; Helper Functions (2d) - GA local search
 ;;;******************************************************************************
@@ -399,38 +421,6 @@
 ;;; Helper Functions (2f) - GA family competition
 ;;;******************************************************************************
 
-;; returns the similarity score of the ith code in codes
-(defun similarity-score (i codes)
-  (let* ((game-copy (copy-game *Mastermind*))
-         (c (nth i codes))
-         (N (1- (length codes))))
-    (setf (answer game-copy) c)
-    (loop for j from 0 to N
-       for c* = (nth j codes)
-       when (/= i j)
-       sum (apply '+ (process-guess game-copy c*)) into similarity
-       finally (return similarity))))
-
-;; direction is the symbol '< or '>. '< yields least similar, '> yields most similar
-;; returns the code which is most or least similar to the other codes in codes.
-(defun similarity-extrema (codes direction)
-  (let ((N (1- (length codes))))
-    (loop for i from 0 to N
-       for current = (nth i codes)
-       with best = (first codes) ;initialize to first code
-       with best-similarity = (similarity-score i codes)
-       with current-similarity
-       do (setf current-similarity (similarity-score i codes))
-       when (equal direction '>) ;find maxima
-       do (cond ((> current-similarity best-similarity)
-	       (setf best current)
-	       (setf best-similarity current-similarity)))
-       else ;find minima
-       do (cond ((< current-similarity best-similarity)
-	       (setf best current)
-	       (setf best-similarity current-similarity)))
-       finally (return best))))
-
 ;; returns T if c is eligible
 (defun eligiblep (c)
   (let ((game-copy (copy-game *Mastermind*)))
@@ -442,6 +432,24 @@
        when (not (equal response response-prime))
        do (return nil)
        finally (return T))))
+
+;;;******************************************************************************
+;;; Helper Functions (2g) - Decaying population size
+;;;******************************************************************************
+
+;; sigmoid decreasing function from max to max-step
+(defun f1 (x max step)
+  (let* ((g (/ (* -1 step x) (+ 1 (abs x))))
+         (result (multiple-value-bind (f r) (floor g) (list f r)))
+         (x* (first result)))
+    (+ max x*)))
+
+;; shifted sigmoid decreasing function
+(defun f2 (x max step)
+  (let* ((g (/ (* -1 step (- x 50)) (+ 1 (abs (- x 50)))))
+         (result (multiple-value-bind (f r) (floor g) (list f r)))
+         (x* (first result)))
+    (+ max x*)))
 
 ;;;******************************************************************************
 ;;; Players to be called by nilNewts
@@ -481,19 +489,15 @@
        do (setf pass T)
        ;;when (= loop-count 3) ;exit condition--needs to be investigated
        ;;do (setf pass T)
-       ;;do (print max-fitness)
-         ;;do (print (most-fit new-gen SCSA))
-       ;;do (print min-fitness)
-         ;;do (print (least-fit new-gen SCSA))
-
        do (setf prev-gen new-gen)
        finally (setf return-list new-gen)) ;keep the last population
+    
     (update-total-generations loop-count) ;for measurement
     (setf return-list (remove-if #'guessedp return-list)) ;no duplicate guesses allowed
     (setf result (member-if #'eligiblep return-list))
-    (least-fit return-list SCSA)
-    ;;(cond ((not (null result)) (first result))
-	;;(T (least-fit return-list SCSA)))
+    ;;(least-fit return-list SCSA)
+    (cond ((not (null result)) (first result))
+	(T (least-fit return-list SCSA)))
     ))
 
 ;;;******************************************************************************
@@ -555,7 +559,8 @@
     (setf run-time (/ (float run-time) 10))
     
     (setf avg-guesses (/ (float *total-guesses*) num-games))
-    (setf won-guesses (/ (float won-guesses) wins))
+    (cond ((> wins 0) (setf won-guesses (/ (float won-guesses) wins)))
+	(T (setf won-guesses 'NA))) ;no wins
     (format t "~%(wins losses failures): ~a" return-list)
     (format t "~%Total run-time: ~a ms" run-time)
     (format t "~%Average guesses: ~a" avg-guesses)
@@ -570,15 +575,19 @@
 
 (defun nilNewts (board colors SCSA last-response)
   (let ((next)
-        (colors* colors))
+        (colors* colors)
+        (f* 'f1) ;function name
+        (max 150) ;argument for f
+        (step 120)) ;argument for f
     (cond ((equal SCSA 'ab-color) (setf colors* '(a b))))
     (cond ((null last-response) ;first round, initializing values
 	 (update-total-guesses)
 	 (reset-history) ;reset global variables
-	 (set-values 1 1 50)
-	 ;(set-values 1 1 (- 100 (1- (length *guesses*)))) ;uncomment for actual playing
+	 (set-parameters 1 1)
+	 (set-population-size (funcall f* (length *guesses*) max step)) ;decrease pop size over time
 	 (setf next (make-initial-guess board colors*)))
 	(T (update-responses last-response)
+	   (set-population-size (funcall f* (length *guesses*) max step)) ;decrease pop size over time
 	   (setf next (GA-Player board colors* SCSA))))
     (update-guesses next)
     ;(print next)
