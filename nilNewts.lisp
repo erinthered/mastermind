@@ -153,6 +153,23 @@
       (T 1)
       )))
 
+(defun mystery-2-weight (code)
+  (loop with color1 = (first code)
+	with color2 = (second code)
+	with color3 = (third code)
+	with alternating-list = (list)
+	for i from 0 to (1- (length code))
+	if (equal 0 (mod i 3))
+	  do (setf alternating-list (cons color1 alternating-list))
+	else if (equal 1 (mod i 3))
+	       do (setf alternating-list (cons color2 alternating-list))
+	else
+	  do (setf alternating-list (cons color3 alternating-list))
+	finally (if (equal code (reverse alternating-list))
+		    (return 0)
+		    (return 1))))
+  
+
 (defun mystery-3-weight (code)
   (let* ((color-count (color-counter *Mastermind* code)) ;array
          (present (count-if #'plusp color-count)))
@@ -578,7 +595,7 @@
         (colors* colors)
         (f* 'f1) ;function name
         (max 150) ;argument for f
-        (step 120)) ;argument for f
+        (step 80)) ;argument for f
     (cond ((equal SCSA 'ab-color) (setf colors* '(a b))))
     (cond ((null last-response) ;first round, initializing values
 	 (update-total-guesses)
