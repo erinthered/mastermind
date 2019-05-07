@@ -182,6 +182,7 @@
      with losses = 0
      with codes = (if (listp argument) argument (SCSA-sampler number-of-games argument (board self) (number-of-colors self)))
      for i from 0 to (1- number-of-games)
+     ;for round = (and (setf (answer *Mastermind*) '(h e e h e e h h)) (play-round self team))
      for round = (and (setf (answer *Mastermind*) (nth i codes)) (play-round self team)) ;this is where the; code is set
     ;do (print (nth i codes))
     ; when (= (* 10 (floor (/ i 10))) i) do (print i)
@@ -189,7 +190,8 @@
      when (equal (first round) 'win)
      do (incf wins (float (/ 1 (expt (second round) .5)))) 
      else when (null round)
-     do (incf failures) 
+     do (incf failures)
+       and do (setf *failed-guesses* (+ *failed-guesses* (length *guesses*)));;;;MY ADDITION
      else do (incf losses)
      finally (print (list 'score (scoring-function (list wins losses failures))))
        (return (list wins losses failures))))
