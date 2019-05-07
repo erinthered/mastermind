@@ -56,26 +56,28 @@
 ;; the return value from the weight functions are shifted down one to increase preference towards mmatches, as the algorithm seeks to minimize the fitness value.
 (defun scsa-weight (scsa code)
   (let ((w (cond ((equal scsa 'two-color) ;two color
-	        (two-color-weight code))
-	       ((equal scsa 'two-color-alternating) ;two-color-alternating
-	        (two-color-alternating-weight code))
-	       ((equal scsa 'only-once) ;only-once
-	        (only-once-weight code))
-	       ((equal scsa 'first-and-last) ;first-and-last
-	        (first-and-last-weight code))
-	       ((equal scsa 'usually-fewer) ;usually-fewer
-	        (usually-fewer-weight code))
-	       ((equal scsa 'prefer-fewer) ;prefer-fewer
-	        (prefer-fewer-weight code))
-	       ((equal scsa 'mystery-1) ;mystery-1
-	        (mystery-1-weight code))
-	       ((equal scsa 'mystery-3) ;mystery-3
-	        (mystery-3-weight code))
-	       ((equal scsa 'mystery-4) ;mystery-4
-	        (mystery-4-weight code))
-	       ((equal scsa 'mystery-5) ;mystery-5
-	        (two-color-alternating-weight code))
-	       (T 0))))
+	          (two-color-weight code))
+		 ((equal scsa 'two-color-alternating) ;two-color-alternating
+	          (two-color-alternating-weight code))
+		 ((equal scsa 'only-once) ;only-once
+	          (only-once-weight code))
+		 ((equal scsa 'first-and-last) ;first-and-last
+	          (first-and-last-weight code))
+		 ((equal scsa 'usually-fewer) ;usually-fewer
+	          (usually-fewer-weight code))
+		 ((equal scsa 'prefer-fewer) ;prefer-fewer
+	          (prefer-fewer-weight code))
+		 ((equal scsa 'mystery-1) ;mystery-1
+	          (mystery-1-weight code))
+	       	 ((equal scsa 'mystery-2) ;mystery-2
+	          (mystery-2-weight code))
+		 ((equal scsa 'mystery-3) ;mystery-3
+	          (mystery-3-weight code))
+		 ((equal scsa 'mystery-4) ;mystery-4
+	          (mystery-4-weight code))
+		 ((equal scsa 'mystery-5) ;mystery-5
+	          (two-color-alternating-weight code))
+		 (T 0))))
     (1- w)
     ;w
     ))
