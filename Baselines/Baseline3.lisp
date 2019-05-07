@@ -22,16 +22,16 @@
 
 ;; generates the first eligible code and calls helper function to derive all other eligible codes
 (defun generate-eligible (board colors)
-	(let 	((remaining-pegs board)
-					(eligible-code nil))
+	(let ((remaining-pegs board)
+		(eligible-code nil))
 		(loop for color in *response-list*
 			do(loop for i from 0 to (1- (nth 1 color))
 				do (push (nth 0 color) eligible-code)
 				do (setf remaining-pegs (1- remaining-pegs))))	
 		(cond ((not (= remaining-pegs 0))
-						(loop for i from 0 to (1- remaining-pegs)
-							do (push (nth (- (length colors) 1) colors) eligible-code))
-						(setf remaining-pegs 0)))
+				(loop for i from 0 to (1- remaining-pegs)
+					do (push (nth (- (length colors) 1) colors) eligible-code))
+				(setf remaining-pegs 0)))
 		(populate-list board eligible-code)))
 
 ;; maps the response from the game to create a list of responses
@@ -40,7 +40,7 @@
 		(setf *color-counter* (+ *color-counter* 1))
 		(loop for i from color-limit downto 0
 			do(setf (nth (- color-limit i) *response-list*)
-							(list (nth i colors) (nth 0 (nth (- color-limit i) *response-list*)))))))
+					(list (nth i colors) (nth 0 (nth (- color-limit i) *response-list*)))))))
 
 ;; main player for baseline-3
 ;; the first colors-1 guesses will be a list of the same colors
@@ -48,19 +48,19 @@
 (defun baseline-3 (board colors last-response)
 	(let ((guess-sequence))
 	(cond (	(and (> *color-counter* 0) (< *color-counter* (length colors)))
-					(push last-response *response-list*)))
+			(push last-response *response-list*)))
 	(cond (	(< *color-counter* (- (length colors) 1))
-					(setf guess-sequence (generate-individual-colors board colors))
-					(push guess-sequence *guess-list*)
-					(setf *color-counter* (+ *color-counter* 1)))
-				(T
-					(cond (	(= *color-counter* (- (length colors) 1))
-									(map-response-to-colors colors)
-									(generate-eligible board colors)))
-					(setf guess-sequence (first *eligible*))
-					(push guess-sequence *guess-list*)
-					(setf *eligible* (rest *eligible*))
-					))
+				(setf guess-sequence (generate-individual-colors board colors))
+				(push guess-sequence *guess-list*)
+				(setf *color-counter* (+ *color-counter* 1)))
+			(T
+				(cond (	(= *color-counter* (- (length colors) 1))
+								(map-response-to-colors colors)
+								(generate-eligible board colors)))
+				(setf guess-sequence (first *eligible*))
+				(push guess-sequence *guess-list*)
+				(setf *eligible* (rest *eligible*))
+				))
 			;; print(guess-sequence)
 		guess-sequence))
 
