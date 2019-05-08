@@ -556,7 +556,7 @@
 		     *failed-guesses*))
     
     (setf run-time (- end-time start-time))
-    (setf run-time (/ (float run-time) 10))
+    ;; (setf run-time (/ (float run-time) 10))
     
     (setf avg-guesses (/ (float *total-guesses*) num-games))
     (cond ((> wins 0) (setf won-guesses (/ (float won-guesses) wins)))
@@ -573,22 +573,32 @@
 ;;; nilNewts
 ;;;******************************************************************************
 
+;; default max is 150 and step is 120
 (defun nilNewts (board colors SCSA last-response)
   (let ((next)
         (colors* colors)
-        (f* 'f1) ;function name
-        (max 150) ;argument for f
-        (step 120)) ;argument for f
+        (f* 'f2) ;function name
+        (max 70) ;argument for f     MAX 120 step 80
+        (step 40))
+         ;argument for f
+    ;; (print SCSA)
     (cond ((equal SCSA 'ab-color) (setf colors* '(a b))))
     (cond ((null last-response) ;first round, initializing values
 	 (update-total-guesses)
 	 (reset-history) ;reset global variables
 	 (set-parameters 1 1)
-	 (set-population-size (funcall f* (length *guesses*) max step)) ;decrease pop size over time
+	 (set-population-size (funcall f* (length *guesses*) max step)) ;decrease pop size over time - scrapped
+	;;  (set-population-size 100) ;CONSTANT POPULATION SIZE
 	 (setf next (make-initial-guess board colors*)))
 	(T (update-responses last-response)
-	   (set-population-size (funcall f* (length *guesses*) max step)) ;decrease pop size over time
+	   (set-population-size (funcall f* (length *guesses*) max step)) ;decrease pop size over time - scrapped
 	   (setf next (GA-Player board colors* SCSA))))
     (update-guesses next)
     ;(print next)
     next))
+
+(defun loop-for-data ()
+  (loop for i from 1 to 2
+    do (statistics 4 6 'rao-player 'two-color 1)
+    do (terpri)
+    do (terpri)))
