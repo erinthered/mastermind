@@ -124,7 +124,7 @@
   (let* ((color-count (color-counter *Mastermind* code))
          (missing (count 0 color-count))
          (present (- (number-of-colors *Mastermind*) missing)))
-    (cond ((or (= present 2) (= present 3)) 0.9)
+    (cond ((or (= present 2) (= present 3)) 0.45)
 	(T 0.1))))
 
 ;; choose 1 color with p = 0.49
@@ -285,8 +285,8 @@
        sum (abs (- (second response-prime) (second response))) into sum-y
        finally (return (+ (* sum-x *fitness-a*)
 		      sum-y		      
-		      ;(* board (1- i) *fitness-b*)
-		      (* board (1- i) *fitness-b* (scsa-weight c SCSA))
+		      (* board (1- i) *fitness-b*)
+		      (scsa-weight c SCSA)
 		      ))
          )))
 
@@ -575,7 +575,7 @@
 		     *failed-guesses*))
     
     (setf run-time (- end-time start-time))
-    (setf run-time (/ (float run-time) 10))
+    ;; (setf run-time (/ (float run-time) 10))
     
     (setf avg-guesses (/ (float *total-guesses*) num-games))
     (cond ((> wins 0) (setf won-guesses (/ (float won-guesses) wins)))
@@ -592,21 +592,25 @@
 ;;; nilNewts
 ;;;******************************************************************************
 
+;; default max is 150 and step is 120
 (defun nilNewts (board colors SCSA last-response)
   (let ((next)
         (colors* colors)
-        (f* 'f1) ;function name
-        (max 150) ;argument for f
-        (step 80)) ;argument for f
+        (f* 'f2) ;function name
+        (max 70) ;argument for f     MAX 120 step 80
+        (step 40))
+         ;argument for f
+    ;; (print SCSA)
     (cond ((equal SCSA 'ab-color) (setf colors* '(a b))))
     (cond ((null last-response) ;first round, initializing values
 	 (update-total-guesses)
 	 (reset-history) ;reset global variables
 	 (set-parameters 1 1)
-	 (set-population-size (funcall f* (length *guesses*) max step)) ;decrease pop size over time
+	 (set-population-size (funcall f* (length *guesses*) max step)) ;decrease pop size over time - scrapped
+	;;  (set-population-size 100) ;CONSTANT POPULATION SIZE
 	 (setf next (make-initial-guess board colors*)))
 	(T (update-responses last-response)
-	   (set-population-size (funcall f* (length *guesses*) max step)) ;decrease pop size over time
+	   (set-population-size (funcall f* (length *guesses*) max step)) ;decrease pop size over time - scrapped
 	   (setf next (GA-Player board colors* SCSA))))
     (update-guesses next)
     ;(print next)
