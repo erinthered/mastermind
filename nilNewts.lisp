@@ -122,7 +122,7 @@
   (let* ((color-count (color-counter *Mastermind* code))
          (missing (count 0 color-count))
          (present (- (number-of-colors *Mastermind*) missing)))
-    (cond ((or (= present 2) (= present 3)) 0.9)
+    (cond ((or (= present 2) (= present 3)) 0.45)
 	(T 0.1))))
 
 ;; choose 1 color with p = 0.49
@@ -266,8 +266,8 @@
        sum (abs (- (second response-prime) (second response))) into sum-y
        finally (return (+ (* sum-x *fitness-a*)
 		      sum-y		      
-		      ;(* board (1- i) *fitness-b*)
-		      (* board (1- i) *fitness-b* (scsa-weight c SCSA))
+		      (* board (1- i) *fitness-b*)
+		      (scsa-weight c SCSA)
 		      ))
          )))
 
@@ -596,9 +596,3 @@
     (update-guesses next)
     ;(print next)
     next))
-
-(defun loop-for-data ()
-  (loop for i from 1 to 2
-    do (statistics 4 6 'rao-player 'two-color 1)
-    do (terpri)
-    do (terpri)))
