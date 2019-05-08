@@ -556,8 +556,7 @@
 		     *failed-guesses*))
     
     (setf run-time (- end-time start-time))
-    (setf run-time (/ (float run-time) 10))
-    
+    ;; (setf run-time (/ (float run-time) 10))
     (setf avg-guesses (/ (float *total-guesses*) num-games))
     (cond ((> wins 0) (setf won-guesses (/ (float won-guesses) wins)))
 	(T (setf won-guesses 'NA))) ;no wins
