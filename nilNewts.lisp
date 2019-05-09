@@ -77,7 +77,6 @@
 	        (two-color-alternating-weight code))
 	       (T 0))))
     (1- w)
-    ;w
     ))
 
 (defun two-color-weight (code)
@@ -445,11 +444,11 @@
     (+ max x*)))
 
 ;; shifted sigmoid decreasing function
-(defun f2 (x max step)
-  (let* ((g (/ (* -1 step (- x 50)) (+ 1 (abs (- x 50)))))
+(defun f2 (x a b c)
+  (let* ((g (/ (* -1 c (- x b)) (+ 1 (abs (- x b)))))
          (result (multiple-value-bind (f r) (floor g) (list f r)))
          (x* (first result)))
-    (+ max x*)))
+    (+ a x*)))
 
 ;;;******************************************************************************
 ;;; Players to be called by nilNewts
@@ -485,19 +484,18 @@
 		 (setf unchanged-count 0))
 		(T (incf unchanged-count)))
 
-       when (= unchanged-count 2)
+       when (or (= unchanged-count 2) (> loop-count 8))
        do (setf pass T)
-       ;;when (= loop-count 3) ;exit condition--needs to be investigated
-       ;;do (setf pass T)
+         
        do (setf prev-gen new-gen)
        finally (setf return-list new-gen)) ;keep the last population
     
     (update-total-generations loop-count) ;for measurement
     (setf return-list (remove-if #'guessedp return-list)) ;no duplicate guesses allowed
     (setf result (member-if #'eligiblep return-list))
-    ;;(least-fit return-list SCSA)
-    (cond ((not (null result)) (first result))
-	(T (least-fit return-list SCSA)))
+    (least-fit return-list SCSA)
+    ;(cond ((not (null result)) (first result))
+;	(T (least-fit return-list SCSA)))
     ))
 
 ;;;******************************************************************************
@@ -573,27 +571,41 @@
 ;;; nilNewts
 ;;;******************************************************************************
 
-;; default max is 150 and step is 120
+(defun set-f2-a (P N)
+  (cond ((and (>= P 18) (>= P 18)) 100)
+        ((and (>= P 16) (>= N 16)) 70)
+        (T (set-f2-b P N))))
+
+(defun set-f2-b (P N)
+  (cond ((and (>= P 18) (>= N 18)) 70)
+        ((and (>= P 16) (>= N 16)) 50)
+         ((and (>= P 8) (>= N 10)) 70)
+         (T 0)))
+
+(defun set-f2-c (P N)
+  (cond ((and (>= P 18) (>= 18)) 70)
+        ((and (>= P 16) (>= N 16) 50))
+        ((and (>= P 8) (>= N 10)) 40)
+        (T 0)))
+
 (defun nilNewts (board colors SCSA last-response)
-  (let ((next)
+  (let* ((next)
         (colors* colors)
-        (f* 'f2) ;function name
-        (max 70) ;argument for f     MAX 120 step 80
-        (step 40))
-         ;argument for f
-    ;; (print SCSA)
-    (cond ((equal SCSA 'ab-color) (setf colors* '(a b))))
+        (NN (length colors))
+        (a (set-f2-a board NN))
+        (b (set-f2-b board NN)) ;argument for f
+        (c (set-f2-b board NN))) ;argument for f
+    (cond ((equal SCSA 'ab-color) (setf colors* '(a b)))) ;restrict color set
     (cond ((null last-response) ;first round, initializing values
 	 (update-total-guesses)
 	 (reset-history) ;reset global variables
 	 (set-parameters 1 1)
-	 (set-population-size (funcall f* (length *guesses*) max step)) ;decrease pop size over time - scrapped
-	;;  (set-population-size 100) ;CONSTANT POPULATION SIZE
+	 (cond ((and (>= board 8) (>= NN 10)) (set-population-size (f2 NN a b c))) ;decrease pop size over time
+	       (T (set-population-size 100))) ;set CONSTANT POPULATION SIZE
 	 (setf next (make-initial-guess board colors*)))
-	(T (update-responses last-response)
-	   (set-population-size (funcall f* (length *guesses*) max step)) ;decrease pop size over time - scrapped
-	   (setf next (GA-Player board colors* SCSA))))
-    (update-guesses next)
-    ;(print next)
+	(T (update-responses last-response) ;not the first round
+	   (cond ((and (>= board 8) (>= NN 10)) (set-population-size (f2 NN a b c)))) ;update pop size
+	   (setf next (GA-Player board colors* SCSA)))) ;call GA
+    (update-guesses next) ;update guess history
+    ;(print (last last-response))
     next))
-

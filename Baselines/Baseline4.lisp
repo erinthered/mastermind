@@ -211,7 +211,7 @@
 ;; Player
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun rao-player (board colors SCSA last-response)
+(defun baseline-4-nilNewts (board colors SCSA last-response)
   (declare (ignore SCSA))
   (let* ((bulls (first last-response))
          (cows (second last-response))
