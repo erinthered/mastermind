@@ -9,14 +9,11 @@
 (defvar *population-size* 0)
 (defvar *fitness-a* 0)
 (defvar *fitness-b* 0)
+(defvar *num-colors* 0) ;store length of colors in global var
 
 ;;;*********************************************************************************************************
 ;;;Helper Functions (1a) - General
 ;;;*********************************************************************************************************
-
-;;copy constructor for game class
-(defmethod copy-game ((self game))
-  (make-instance 'game :board (board self) :colors (colors self) :number-of-colors (number-of-colors self) :answer (answer self) :SCSA (SCSA self) :guesses (guesses self) :game-cutoff (game-cutoff self)))
 
 (defun set-population-size (n)
   (setf *population-size* n))
@@ -47,6 +44,63 @@
 (defun guessedp (code)
   (cond ((member code *guesses* :test 'equal) T)
         (T nil)))
+
+;;copy of spot from Mastermind for students.lisp
+(defun my-spot (color)
+  (case color
+    (A 0)
+    (B 1)
+    (C 2)
+    (D 3)
+    (E 4)
+    (F 5)
+    (G 6)
+    (H 7)
+    (I 8)
+    (J 9)
+    (K 10)
+    (L 11)
+    (M 12)
+    (N 13)
+    (O 14)
+    (P 15)
+    (Q 16)
+    (R 17)
+    (S 18)
+    (TT 19)
+    (U 20)
+    (V 21)
+    (W 22)
+    (X 23)
+    (Y 24)
+    (Z 25)))
+
+;; adaptation of "color-counter" function
+(defmethod my-color-counter (number list)
+  (loop with tally = (make-array number :initial-element 0)
+     for peg in list
+     for index = (my-spot peg)
+     do (incf (aref tally index))
+     finally (return tally)))
+
+;; adaptation of "process-guess" function
+(defmethod score-guess (answer guess num-colors)
+  (loop with guess-color-count = (my-color-counter num-colors guess)
+     with true-color-count = (my-color-counter num-colors answer)
+     with exact-counter = 0
+     for entry in guess
+     for peg in answer
+     for exact = (equal entry peg)
+     when exact 
+     do (incf exact-counter)
+     and do (decf (aref guess-color-count (my-spot entry)))
+     and do (decf (aref true-color-count (my-spot entry)))
+     finally (return (list exact-counter (loop for i from 0 to (1- num-colors)
+				    for guessed = (aref true-color-count i)
+				    for true = (aref guess-color-count i)
+				    when (<= true guessed)
+				    sum true
+				    else sum guessed)))))
 
 ;;;*********************************************************************************************************
 ;;;Helper Functions (1b) - SCSAs
@@ -118,7 +172,7 @@
 
 ;;choose 2 or 3 colors with p = 0.9
 (defun usually-fewer-weight (code)
-  (let* ((color-count (color-counter *Mastermind* code))
+  (let* ((color-count (my-color-counter *Mastermind* code))
          (missing (count 0 color-count))
          (present (- (number-of-colors *Mastermind*) missing)))
     (cond ((or (= present 2) (= present 3)) 0.45)
@@ -131,7 +185,7 @@
 ;; choose 5 colors with p = 0.03
 ;; choose 6 or more with p = 0.02
 (defun prefer-fewer-weight (code)
-  (let* ((color-count (color-counter *Mastermind* code)) ;array
+  (let* ((color-count (my-color-counter *num-colors* code)) ;array
          (present (count-if #'plusp color-count)))
     (cond ((= present 1) 0.49)
 	((= present 2) 0.25)
@@ -141,7 +195,7 @@
 	(T 0.02))))
 
 (defun mystery-1-weight (code)
-  (let* ((color-count (color-counter *Mastermind* code)) ;array
+  (let* ((color-count (my-color-counter *num-colors* code)) ;array
          (present (count-if #'plusp color-count)))
     (case present
       (1 (- 1 (/ (float 89) 200)))
@@ -153,14 +207,14 @@
       )))
 
 (defun mystery-3-weight (code)
-  (let* ((color-count (color-counter *Mastermind* code)) ;array
+  (let* ((color-count (my-color-counter *num-colors* code)) ;array
          (present (count-if #'plusp color-count)))
     (case present
       (3 0)
       (T 1))))
 
 (defun mystery-4-weight (code)
-  (let* ((color-count (color-counter *Mastermind* code)) ;array
+  (let* ((color-count (my-color-counter *num-colors* code)) ;array
          (present (count-if #'plusp color-count)))
     (case present
       (2 (- 1 (/ (float 7) 200)))
@@ -254,13 +308,10 @@
 ;; returns the fitness value of a code c
 (defun fitness (c SCSA)
   (let ((board (length c))
-        (game-copy (copy-game *Mastermind*))
         (i (length *guesses*)))
-    (setf (answer game-copy) c)
     (loop for guess in *guesses*
        for response in *responses*
-       with response-prime
-       do (setf response-prime (process-guess game-copy guess))
+       for response-prime = (score-guess c guess *num-colors*)
        sum (abs (- (first response-prime) (first response))) into sum-x
        sum (abs (- (second response-prime) (second response))) into sum-y
        finally (return (+ (* sum-x *fitness-a*)
@@ -422,15 +473,12 @@
 
 ;; returns T if c is eligible
 (defun eligiblep (c)
-  (let ((game-copy (copy-game *Mastermind*)))
-    (setf (answer game-copy) c)
     (loop for guess in *guesses*
        for response in *responses*
-       with response-prime
-       do (setf response-prime (process-guess game-copy guess))
+       for response-prime = (score-guess c guess *num-colors*)
        when (not (equal response response-prime))
        do (return nil)
-       finally (return T))))
+       finally (return T)))
 
 ;;;******************************************************************************
 ;;; Helper Functions (2g) - Decaying population size
@@ -494,8 +542,8 @@
     (setf return-list (remove-if #'guessedp return-list)) ;no duplicate guesses allowed
     (setf result (member-if #'eligiblep return-list))
     (least-fit return-list SCSA)
-    ;(cond ((not (null result)) (first result))
-;	(T (least-fit return-list SCSA)))
+    (cond ((not (null result)) (first result))
+	(T (least-fit return-list SCSA)))
     ))
 
 ;;;******************************************************************************
@@ -599,6 +647,7 @@
     (cond ((null last-response) ;first round, initializing values
 	 (update-total-guesses)
 	 (reset-history) ;reset global variables
+	 (setf *num-colors* (length colors)) ;set global variable
 	 (set-parameters 1 1)
 	 (cond ((and (>= board 8) (>= NN 10)) (set-population-size (f2 NN a b c))) ;decrease pop size over time
 	       (T (set-population-size 100))) ;set CONSTANT POPULATION SIZE
