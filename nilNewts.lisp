@@ -110,26 +110,28 @@
 ;; the return value from the weight functions are shifted down one to increase preference towards mmatches, as the algorithm seeks to minimize the fitness value.
 (defun scsa-weight (scsa code)
   (let ((w (cond ((equal scsa 'two-color) ;two color
-	        (two-color-weight code))
-	       ((equal scsa 'two-color-alternating) ;two-color-alternating
-	        (two-color-alternating-weight code))
-	       ((equal scsa 'only-once) ;only-once
-	        (only-once-weight code))
-	       ((equal scsa 'first-and-last) ;first-and-last
-	        (first-and-last-weight code))
-	       ((equal scsa 'usually-fewer) ;usually-fewer
-	        (usually-fewer-weight code))
-	       ((equal scsa 'prefer-fewer) ;prefer-fewer
-	        (prefer-fewer-weight code))
-	       ((equal scsa 'mystery-1) ;mystery-1
-	        (mystery-1-weight code))
-	       ((equal scsa 'mystery-3) ;mystery-3
-	        (mystery-3-weight code))
-	       ((equal scsa 'mystery-4) ;mystery-4
-	        (mystery-4-weight code))
-	       ((equal scsa 'mystery-5) ;mystery-5
-	        (two-color-alternating-weight code))
-	       (T 0))))
+	          (two-color-weight code))
+		 ((equal scsa 'two-color-alternating) ;two-color-alternating
+	          (two-color-alternating-weight code))
+		 ((equal scsa 'only-once) ;only-once
+	          (only-once-weight code))
+		 ((equal scsa 'first-and-last) ;first-and-last
+	          (first-and-last-weight code))
+		 ((equal scsa 'usually-fewer) ;usually-fewer
+	          (usually-fewer-weight code))
+		 ((equal scsa 'prefer-fewer) ;prefer-fewer
+	          (prefer-fewer-weight code))
+		 ((equal scsa 'mystery-1) ;mystery-1
+	          (mystery-1-weight code))
+	       	 ((equal scsa 'mystery-2) ;mystery-2
+	          (mystery-2-weight code))
+		 ((equal scsa 'mystery-3) ;mystery-3
+	          (mystery-3-weight code))
+		 ((equal scsa 'mystery-4) ;mystery-4
+	          (mystery-4-weight code))
+		 ((equal scsa 'mystery-5) ;mystery-5
+	          (two-color-alternating-weight code))
+		 (T 0))))
     (1- w)
     ))
 
@@ -205,6 +207,22 @@
       (5 (- 1 (/ (float 5) 200)))
       (T 1)
       )))
+
+(defun mystery-2-weight (code)
+  (loop with color1 = (first code)
+	with color2 = (second code)
+	with color3 = (third code)
+	with alternating-list = (list)
+	for i from 0 to (1- (length code))
+	if (equal 0 (mod i 3))
+	  do (setf alternating-list (cons color1 alternating-list))
+	else if (equal 1 (mod i 3))
+	       do (setf alternating-list (cons color2 alternating-list))
+	else
+	  do (setf alternating-list (cons color3 alternating-list))
+	finally (if (equal code (reverse alternating-list))
+		    (return 0)
+		    (return 1))))
 
 (defun mystery-3-weight (code)
   (let* ((color-count (my-color-counter *num-colors* code)) ;array
